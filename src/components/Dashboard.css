@@ -1,0 +1,132 @@
+.dashboard-container {
+  padding: 30px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.dashboard-container h2 {
+  color: #2c3e50;
+  margin-bottom: 20px;
+}
+
+.dashboard-intro {
+  background-color: #f7fbff;
+  border-left: 4px solid #3498db;
+  padding: 20px;
+  border-radius: 4px;
+  margin-bottom: 30px;
+}
+
+.dashboard-intro p {
+  margin: 0;
+  line-height: 1.6;
+  color: #34495e;
+}
+
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 30px;
+  margin-bottom: 40px;
+}
+
+.dashboard-card {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  padding: 25px;
+  transition: transform 0.3s, box-shadow 0.3s;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-card h3 {
+  color: #2c3e50;
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+.dashboard-card p {
+  color: #7f8c8d;
+  margin-bottom: 20px;
+  flex-grow: 1;
+}
+
+.dashboard-card button {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 12px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  font-size: 16px;
+  margin-top: auto;
+}
+
+.dashboard-card button:hover {
+  background-color: #2980b9;
+}
+
+.card-options {
+  margin-bottom: 20px;
+}
+
+.card-options span {
+  font-weight: 500;
+  color: #34495e;
+  font-size: 14px;
+}
+
+.card-options ul {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  color: #7f8c8d;
+}
+
+.card-options li {
+  margin-bottom: 5px;
+}
+
+.dashboard-help {
+  background-color: #f8f9fa;
+  padding: 25px;
+  border-radius: 8px;
+  border-top: 4px solid #2ecc71;
+}
+
+.dashboard-help h3 {
+  color: #2c3e50;
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+.dashboard-help p {
+  margin: 0;
+  color: #34495e;
+  line-height: 1.6;
+}
+
+.dashboard-help a {
+  color: #3498db;
+  text-decoration: none;
+}
+
+.dashboard-help a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 20px;
+  }
+  
+  .dashboard-cards {
+    grid-template-columns: 1fr;
+  }
+}
