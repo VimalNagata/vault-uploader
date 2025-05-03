@@ -31,8 +31,9 @@
     "build": "react-app-rewired build",
     "test": "react-app-rewired test",
     "eject": "react-scripts eject",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
+    "predeploy": "cp .env.production .env && npm run build",
+    "deploy": "gh-pages -d build",
+    "postdeploy": "git checkout -- .env"
   },
   "eslintConfig": {
     "extends": [

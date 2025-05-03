@@ -109,14 +109,17 @@ This creates a `build` folder with the optimized production build.
 The application is configured for easy deployment to GitHub Pages.
 
 1. Make sure the `homepage` field in `package.json` matches your GitHub Pages URL
-2. Run the deploy command:
+2. Configure `.env.production` with placeholder values to prevent exposing credentials
+3. Run the deploy command:
 
 ```bash
 npm run deploy
 ```
 
-3. Your application will be built and deployed to the `gh-pages` branch
-4. GitHub Pages will serve your application from the specified homepage URL
+4. Your application will be built and deployed to the `gh-pages` branch
+5. GitHub Pages will serve your application from the specified homepage URL
+
+**Security Note**: The deployment process uses `.env.production` with placeholder AWS credentials. The GitHub Pages deployment is intended for demonstration purposes only and will not be able to upload files to S3. For a production environment, use a proper backend service to handle AWS credentials.
 
 ## Security Considerations
 
