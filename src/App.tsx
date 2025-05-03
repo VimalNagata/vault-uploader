@@ -83,6 +83,11 @@ const App: React.FC = () => {
     >
       <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID || "MISSING_CLIENT_ID"}>
         <div className="app">
+          {process.env.NODE_ENV === 'production' && (
+            <div className="demo-warning">
+              <strong>Demo Mode:</strong> Running on GitHub Pages with no AWS connectivity. Upload functionality is disabled.
+            </div>
+          )}
           {isLoggedIn ? (
             <>
               <Navigation 

@@ -227,3 +227,15 @@ body {
 .error-boundary button:hover {
   background-color: #2980b9;
 }
+
+/* Demo warning for GitHub Pages */
+.demo-warning {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin: 10px;
+  text-align: center;
+  font-size: 14px;
+}

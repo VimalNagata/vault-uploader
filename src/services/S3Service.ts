@@ -20,8 +20,13 @@ class S3Service {
     this.region = process.env.REACT_APP_AWS_REGION || 'us-east-1';
     
     // Get credentials directly from environment variables
-    this.accessKeyId = process.env.REACT_APP_AWS_ACCESS_KEY_ID || null;
-    this.secretAccessKey = process.env.REACT_APP_AWS_SECRET_ACCESS_KEY || null;
+    // For production/GitHub Pages, we'll use placeholder values
+    this.accessKeyId = process.env.NODE_ENV === 'production' 
+      ? 'GITHUB_PAGES_DEMO_NO_UPLOAD' 
+      : (process.env.REACT_APP_AWS_ACCESS_KEY_ID || null);
+    this.secretAccessKey = process.env.NODE_ENV === 'production'
+      ? 'GITHUB_PAGES_DEMO_SECRET_NO_UPLOAD'
+      : (process.env.REACT_APP_AWS_SECRET_ACCESS_KEY || null);
     
     // Log warning if credentials are missing
     if (!this.accessKeyId || !this.secretAccessKey) {
