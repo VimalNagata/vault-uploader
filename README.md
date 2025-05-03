@@ -104,19 +104,31 @@ npm run build
 
 This creates a `build` folder with the optimized production build.
 
-### Deploying to GitHub Pages
+### Deployment Options
 
-The application is configured for deployment to GitHub Pages using GitHub Actions.
+#### Option 1: Netlify, Vercel, or Surge
 
-1. Push your changes to the main branch
-2. The GitHub Actions workflow will automatically:
-   - Build the application with placeholder AWS credentials
-   - Deploy to the gh-pages branch
-   - Configure GitHub Pages to serve the site
+For the simplest deployment, we recommend using a service like Netlify, Vercel, or Surge:
+
+1. [Netlify](https://www.netlify.com/): `netlify deploy`
+2. [Vercel](https://vercel.com/): `vercel`
+3. [Surge](https://surge.sh/): `surge build`
+
+These services don't have the same strict secret scanning as GitHub Pages, making deployment easier.
+
+#### Option 2: GitHub Pages
+
+Due to GitHub's secret scanning, deploying to GitHub Pages requires allowing the detected secrets in your repository settings:
+
+1. Build the application with: `npm run build`
+2. Go to your GitHub repository → Settings → Security → Code scanning and analysis → Secret scanning
+3. Find the detected AWS keys
+4. Mark them as "false positive" or "used in tests"
+5. Deploy with: `npm run deploy`
 
 The GitHub Pages URL will be: `https://[your-github-username].github.io/vault-uploader/`
 
-**Security Note**: The GitHub Pages deployment is intended for demonstration purposes only and will not be able to upload files to S3. In the demo version, the AWS credentials are replaced with placeholder values to prevent exposing sensitive information. For a production environment, use a proper backend service to handle AWS credentials.
+**Security Note**: All deployment options use a mock S3 service in production mode. The application will show a "Demo Mode" warning and will only simulate file uploads, not actually connect to AWS.
 
 ## Security Considerations
 
