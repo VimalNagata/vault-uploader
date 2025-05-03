@@ -1,6 +1,11 @@
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import S3Service from '../services/S3Service';
+
+// Conditionally import S3Service or MockS3Service based on environment
+// eslint-disable-next-line import/first
+const S3Service = process.env.NODE_ENV === 'production' 
+  ? require('../services/MockS3Service').default
+  : require('../services/S3Service').default;
 
 interface ManualUploaderProps {
   username: string;

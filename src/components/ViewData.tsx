@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import S3Service from '../services/S3Service';
 import './ViewData.css';
+
+// Conditionally import S3Service or MockS3Service based on environment
+// eslint-disable-next-line import/first
+const S3Service = process.env.NODE_ENV === 'production' 
+  ? require('../services/MockS3Service').default
+  : require('../services/S3Service').default;
 
 interface ViewDataProps {
   username: string;

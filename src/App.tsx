@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ErrorBoundary } from 'react-error-boundary';
-import S3Service from './services/S3Service';
 import Login from './components/Login';
 import Navigation from './components/Navigation';
 import Dashboard from './components/Dashboard';
 import UploaderTabs from './components/UploaderTabs';
 import ViewData from './components/ViewData';
 import './App.css';
+
+// Conditionally import S3Service or MockS3Service based on environment
+// eslint-disable-next-line import/first
+const S3Service = process.env.NODE_ENV === 'production' 
+  ? require('./services/MockS3Service').default
+  : require('./services/S3Service').default;
 
 // Create a constant for the Google Client ID
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
