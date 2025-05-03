@@ -106,20 +106,17 @@ This creates a `build` folder with the optimized production build.
 
 ### Deploying to GitHub Pages
 
-The application is configured for easy deployment to GitHub Pages.
+The application is configured for deployment to GitHub Pages using GitHub Actions.
 
-1. Make sure the `homepage` field in `package.json` matches your GitHub Pages URL
-2. Configure `.env.production` with placeholder values to prevent exposing credentials
-3. Run the deploy command:
+1. Push your changes to the main branch
+2. The GitHub Actions workflow will automatically:
+   - Build the application with placeholder AWS credentials
+   - Deploy to the gh-pages branch
+   - Configure GitHub Pages to serve the site
 
-```bash
-npm run deploy
-```
+The GitHub Pages URL will be: `https://[your-github-username].github.io/vault-uploader/`
 
-4. Your application will be built and deployed to the `gh-pages` branch
-5. GitHub Pages will serve your application from the specified homepage URL
-
-**Security Note**: The deployment process uses `.env.production` with placeholder AWS credentials. The GitHub Pages deployment is intended for demonstration purposes only and will not be able to upload files to S3. For a production environment, use a proper backend service to handle AWS credentials.
+**Security Note**: The GitHub Pages deployment is intended for demonstration purposes only and will not be able to upload files to S3. In the demo version, the AWS credentials are replaced with placeholder values to prevent exposing sensitive information. For a production environment, use a proper backend service to handle AWS credentials.
 
 ## Security Considerations
 
