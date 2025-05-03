@@ -94,13 +94,29 @@ Then open [http://localhost:3000](http://localhost:3000) to view the app in your
 3. Filter files by category or search term
 4. View file details and download options
 
-## Building for Production
+## Building and Deployment
+
+### Building for Production
 
 ```bash
 npm run build
 ```
 
 This creates a `build` folder with the optimized production build.
+
+### Deploying to GitHub Pages
+
+The application is configured for easy deployment to GitHub Pages.
+
+1. Make sure the `homepage` field in `package.json` matches your GitHub Pages URL
+2. Run the deploy command:
+
+```bash
+npm run deploy
+```
+
+3. Your application will be built and deployed to the `gh-pages` branch
+4. GitHub Pages will serve your application from the specified homepage URL
 
 ## Security Considerations
 
