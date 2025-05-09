@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
-import S3Service from '../services/S3Service';
+import S3Service, { DataStage, getUserStagePath } from '../services/S3Service';
 
 interface EmailUploaderProps {
   username: string;
@@ -143,10 +143,13 @@ const EmailUploader: React.FC<EmailUploaderProps> = ({ username }) => {
       const emailBlob = new Blob([emailsJson], { type: 'application/json' });
       const emailFile = new File([emailBlob], `emails-${new Date().toISOString()}.json`, { type: 'application/json' });
       
-      // Upload to S3
+      // Get the stage path for raw data
+      const stagePath = getUserStagePath(username, DataStage.RAW_DATA, 'emails');
+      
+      // Upload to S3 in the stage1 folder
       await S3Service.uploadFile(
         emailFile,
-        `${username}/vault/rawdata/emails`
+        stagePath
       );
       
       // For individual email files if desired
@@ -158,9 +161,10 @@ const EmailUploader: React.FC<EmailUploaderProps> = ({ username }) => {
         // Update progress
         setProgress(Math.floor((index / emails.length) * 100));
         
+        // Upload to individual emails folder in stage1
         return S3Service.uploadFile(
           file,
-          `${username}/vault/rawdata/emails/individual`
+          `${stagePath}/individual`
         );
       });
       

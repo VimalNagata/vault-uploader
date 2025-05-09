@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './ViewData.css';
-
-// Conditionally import S3Service or MockS3Service based on environment
-// eslint-disable-next-line import/first
-const S3Service = process.env.NODE_ENV === 'production' 
-  ? require('../services/MockS3Service').default
-  : require('../services/S3Service').default;
+import S3Service, { DataStage, getUserStagePath } from '../services/S3Service';
 
 interface ViewDataProps {
   username: string;
@@ -23,18 +18,24 @@ const ViewData: React.FC<ViewDataProps> = ({ username }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedStage, setSelectedStage] = useState<DataStage>(DataStage.RAW_DATA);
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   useEffect(() => {
     fetchUserFiles();
-  }, [username]);
+  }, [username, selectedStage]);
 
   const fetchUserFiles = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const files = await S3Service.listUserFiles(username);
+      // Get the path for the selected stage
+      const stagePath = getUserStagePath(username, selectedStage);
+      console.log(`Fetching files from stage path: ${stagePath}`);
+      
+      // List files from the selected stage
+      const files = await S3Service.listFiles(stagePath);
       setUserFiles(files);
       
       console.log('Files loaded:', files.length);
@@ -87,7 +88,7 @@ const ViewData: React.FC<ViewDataProps> = ({ username }) => {
     
     // Extract relative path
     const key = file.Key || '';
-    const basePath = `${username}/vault/rawdata/`;
+    const basePath = `${username}/${selectedStage}/`;
     const relativePath = key.startsWith(basePath) 
       ? key.substring(basePath.length) 
       : key;
@@ -112,6 +113,19 @@ const ViewData: React.FC<ViewDataProps> = ({ username }) => {
       </div>
       
       <div className="view-filters">
+        <div className="filter-group">
+          <label htmlFor="stage-filter">Data Stage:</label>
+          <select
+            id="stage-filter"
+            value={selectedStage}
+            onChange={(e) => setSelectedStage(e.target.value as DataStage)}
+          >
+            <option value={DataStage.RAW_DATA}>Raw Data (Stage 1)</option>
+            <option value={DataStage.CATEGORIZED}>Categorized (Stage 2)</option>
+            <option value={DataStage.PERSONAS}>Personas (Stage 99)</option>
+          </select>
+        </div>
+        
         <div className="filter-group">
           <label htmlFor="category-filter">Filter by Category:</label>
           <select 
@@ -158,7 +172,7 @@ const ViewData: React.FC<ViewDataProps> = ({ username }) => {
             <tbody>
               {filteredFiles.map((file, index) => {
                 const key = file.Key || '';
-                const basePath = `${username}/vault/rawdata/`;
+                const basePath = `${username}/${selectedStage}/`;
                 const relativePath = key.startsWith(basePath) 
                   ? key.substring(basePath.length) 
                   : key;

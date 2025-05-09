@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import "./Dashboard.css";
-import S3Service from "../services/S3Service";
+import S3Service, { DataStage, getUserStagePath } from "../services/S3Service";
 
 interface UserInfo {
   email: string;
@@ -46,9 +46,12 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
     setIsLoading(true);
 
     try {
-      // Load file count from S3 - just to get a real count if available
-      const files = await S3Service.listFiles(username);
+      // Load file count from S3 stage1 (raw data) - just to get a real count if available
+      const stagePath = getUserStagePath(username, DataStage.RAW_DATA);
+      const files = await S3Service.listFiles(stagePath);
       const totalFiles = files.length;
+      
+      console.log(`Found ${totalFiles} files in ${stagePath}`);
 
       // Create mock data categories based on real file count if available
       const mockCategories: FileCategory[] = [
@@ -197,11 +200,14 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
         });
       }, 300);
 
-      // Get upload paths
+      // Get raw data stage path
+      const stagePath = getUserStagePath(username, DataStage.RAW_DATA);
+      
+      // Create relative paths within the stage1 folder 
       const paths = files.map(() => "");
 
       // Actually upload files using S3Service
-      await S3Service.uploadFolder(files, username, paths);
+      await S3Service.uploadFolder(files, stagePath, paths);
 
       // Complete the upload
       clearInterval(timer);

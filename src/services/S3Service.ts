@@ -468,6 +468,26 @@ class S3Service {
   }
 }
 
-// File categorization will be implemented in the backend
+// Folder structure for organizing user data
+export enum DataStage {
+  RAW_DATA = "stage1",
+  CATEGORIZED = "stage2",
+  PERSONAS = "stage99"
+}
+
+/**
+ * Get the full S3 path for a user's data at a specific stage
+ * @param username The user's sanitized email/username
+ * @param stage The data stage
+ * @param subPath Optional sub-path within the stage
+ * @returns The full S3 path
+ */
+export function getUserStagePath(username: string, stage: DataStage, subPath?: string): string {
+  const basePath = `${username}/${stage}`;
+  if (subPath) {
+    return `${basePath}/${subPath}`;
+  }
+  return basePath;
+}
 
 export default new S3Service();

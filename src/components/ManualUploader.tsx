@@ -1,11 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-
-// Conditionally import S3Service or MockS3Service based on environment
-// eslint-disable-next-line import/first
-const S3Service = process.env.NODE_ENV === 'production' 
-  ? require('../services/MockS3Service').default
-  : require('../services/S3Service').default;
+import S3Service, { DataStage, getUserStagePath } from '../services/S3Service';
 
 interface ManualUploaderProps {
   username: string;
@@ -92,8 +87,12 @@ const ManualUploader: React.FC<ManualUploaderProps> = ({ username, onUploadCompl
         throw new Error("Invalid user information. Please sign in again.");
       }
       
-      const s3Prefix = userInfo.s3Prefix || username;
-      console.log(`Using S3 prefix for upload: ${s3Prefix}`);
+      const userFolder = userInfo.s3Prefix || username;
+      console.log(`Using user folder for upload: ${userFolder}`);
+      
+      // Get raw data stage path for this user
+      const stagePath = getUserStagePath(userFolder, DataStage.RAW_DATA);
+      console.log(`Uploading files to stage path: ${stagePath}`);
       
       // Process files in batches to show progress
       const batchSize = 5;
@@ -106,8 +105,8 @@ const ManualUploader: React.FC<ManualUploaderProps> = ({ username, onUploadCompl
         
         console.log(`Uploading batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(totalFiles/batchSize)}`);
         
-        // Use s3Prefix from user info instead of username directly
-        await S3Service.uploadFolder(batch, s3Prefix, batchPaths);
+        // Upload files to the stage1 folder
+        await S3Service.uploadFolder(batch, stagePath, batchPaths);
         
         processed += batch.length;
         setUploadProgress(Math.floor((processed / totalFiles) * 100));
