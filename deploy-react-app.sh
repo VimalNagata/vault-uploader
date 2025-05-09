@@ -105,40 +105,21 @@ echo -e "${GREEN}✓ Content types set correctly!${NC}"
 
 # Create CloudFront invalidation
 echo -e "\n${YELLOW}Step 6: Creating CloudFront invalidation...${NC}"
-INVALIDATION_ID=$(aws cloudfront create-invalidation \
+echo -e "${BLUE}Attempting to invalidate CloudFront distribution...${NC}"
+
+aws cloudfront create-invalidation \
   --distribution-id $CLOUDFRONT_DISTRIBUTION_ID \
   --paths "/*" \
-  --query 'Invalidation.Id' \
-  --output text \
-  --region $REGION)
+  --region $REGION > /dev/null 2>&1
 
 if [ $? -ne 0 ]; then
-    echo -e "${RED}Error: Failed to create CloudFront invalidation.${NC}"
-    exit 1
+    echo -e "${YELLOW}Warning: Could not create CloudFront invalidation. You may need to invalidate manually.${NC}"
+    echo -e "${YELLOW}Command to run manually:${NC}"
+    echo -e "aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths \"/*\""
+else
+    echo -e "${GREEN}✓ CloudFront invalidation created successfully!${NC}"
+    echo -e "${BLUE}Note: CloudFront invalidation may take 5-10 minutes to propagate.${NC}"
 fi
-echo -e "${GREEN}✓ CloudFront invalidation created successfully!${NC}"
-echo -e "${BLUE}Invalidation ID: ${INVALIDATION_ID}${NC}"
-
-# Check invalidation status
-echo -e "\n${YELLOW}Step 7: Checking invalidation status...${NC}"
-echo -e "${BLUE}Waiting for invalidation to complete (this may take a few minutes)...${NC}"
-
-while true; do
-    STATUS=$(aws cloudfront get-invalidation \
-      --distribution-id $CLOUDFRONT_DISTRIBUTION_ID \
-      --id $INVALIDATION_ID \
-      --query 'Invalidation.Status' \
-      --output text \
-      --region $REGION)
-    
-    if [ "$STATUS" == "Completed" ]; then
-        echo -e "${GREEN}✓ Invalidation completed successfully!${NC}"
-        break
-    fi
-    
-    echo -e "${YELLOW}Invalidation status: ${STATUS}. Checking again in 10 seconds...${NC}"
-    sleep 10
-done
 
 # Display completion message
 echo -e "\n${BLUE}=========================================================${NC}"
