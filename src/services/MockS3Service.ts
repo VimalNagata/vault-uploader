@@ -1,12 +1,15 @@
 /**
  * Mock S3Service for GitHub Pages deployment
  * This service simulates S3 behavior without actually connecting to AWS
+ * 
+ * IMPORTANT: GitHub Pages cannot securely connect to AWS services directly.
+ * This mock service is provided for demonstration purposes only.
+ * For production deployments, use a secure backend service or lambda functions.
  */
 class MockS3Service {
   private bucketName: string = 'demo-bucket';
   private region: string = 'demo-region';
-  private accessKeyId: string = 'GITHUB_PAGES_DEMO';
-  private secretAccessKey: string = 'GITHUB_PAGES_DEMO_SECRET';
+  // No credentials stored in the mock service for security
   private mockFiles: Record<string, any[]> = {};
 
   constructor() {
@@ -47,11 +50,11 @@ class MockS3Service {
   }
   
   hasCredentials(): boolean {
-    return true;
+    return true; // Always return true in mock mode
   }
   
   getAccessKeyPreview(): string | null {
-    return 'DEMO_...';
+    return 'MOCK_...'; // Safe mock value
   }
 
   // Setters
@@ -64,8 +67,8 @@ class MockS3Service {
   }
   
   setCredentials(accessKeyId: string, secretAccessKey: string) {
-    this.accessKeyId = accessKeyId;
-    this.secretAccessKey = secretAccessKey;
+    console.log('Credentials not stored in mock service');
+    // Credentials not stored in this service for security
   }
 
   // Mock S3 operations

@@ -10,9 +10,17 @@ import './App.css';
 
 // Conditionally import S3Service or MockS3Service based on environment
 // eslint-disable-next-line import/first
-const S3Service = process.env.NODE_ENV === 'production' 
+const S3Service = process.env.REACT_APP_MOCK_S3 === 'true'
   ? require('./services/MockS3Service').default
   : require('./services/S3Service').default;
+
+// Log which service we're using
+console.log(`Using S3 service: ${process.env.REACT_APP_MOCK_S3 === 'true' ? 'MockS3Service' : 'S3Service'}`);
+console.log('Environment:', {
+  MOCK_S3: process.env.REACT_APP_MOCK_S3,
+  ENABLE_AWS: process.env.REACT_APP_ENABLE_AWS,
+  NODE_ENV: process.env.NODE_ENV
+});
 
 // Get Google OAuth Client ID from environment variable
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
@@ -131,9 +139,9 @@ const App: React.FC = () => {
     >
       <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
         <div className="app">
-          {process.env.NODE_ENV === 'production' && (
+          {process.env.REACT_APP_MOCK_S3 === 'true' && (
             <div className="demo-warning">
-              <strong>Demo Mode:</strong> Running on GitHub Pages with no AWS connectivity. Upload functionality is disabled.
+              <strong>Demo Mode:</strong> Running with mock S3 service. No real AWS connectivity available.
             </div>
           )}
           {isLoggedIn ? (

@@ -31,7 +31,7 @@
     "build": "react-app-rewired build",
     "test": "react-app-rewired test",
     "eject": "react-scripts eject",
-    "predeploy": "cp .env.production .env && npm run build",
+    "predeploy": "cp .env.production .env && REACT_APP_MOCK_S3=true REACT_APP_ENABLE_AWS=false npm run build",
     "deploy": "gh-pages -d build",
     "postdeploy": "git checkout -- .env"
   },

@@ -230,12 +230,15 @@ body {
 
 /* Demo warning for GitHub Pages */
 .demo-warning {
-  background-color: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeeba;
+  background-color: #ffe082;
+  color: #7a5700;
   padding: 10px 15px;
-  border-radius: 4px;
-  margin: 10px;
   text-align: center;
-  font-size: 14px;
+  width: 100%;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  font-weight: bold;
+  border-bottom: 1px solid #ffd54f;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
