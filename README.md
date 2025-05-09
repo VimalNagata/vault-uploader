@@ -2,6 +2,28 @@
 
 A secure application for uploading and managing personal data with Google authentication and AWS S3 storage.
 
+## Production Deployment Information
+
+### Domain Configuration
+- Custom Domain: [https://digitaldna.red/](https://digitaldna.red/)
+- Domain Registration: AWS Route 53
+- DNS Management: AWS Route 53
+
+### CloudFront Distribution
+- Distribution ID: `E3QB86OHQX5C36`
+- Origin: `http://dee-en-eh-react-app.s3-website-us-east-1.amazonaws.com/`
+- SSL Certificate ARN: `arn:aws:acm:us-east-1:390844768511:certificate/9d066d29-7d82-47fa-87b8-3b16bc1fb4ba`
+
+### S3 Hosting
+- Bucket: `dee-en-eh-react-app`
+- Website Endpoint: [http://dee-en-eh-react-app.s3-website-us-east-1.amazonaws.com/](http://dee-en-eh-react-app.s3-website-us-east-1.amazonaws.com/)
+
+### Google OAuth Configuration
+- Project: `dee-en-eh-client` (https://console.cloud.google.com/apis/credentials)
+- Authorized JavaScript Origins:
+  - `https://digitaldna.red`
+  - `http://dee-en-eh-react-app.s3-website-us-east-1.amazonaws.com`
+
 ## Features
 
 - Secure authentication with Google OAuth
@@ -298,3 +320,95 @@ cd lambda
 ```
 
 3. Alternatively, downgrade your Lambda runtime to Node.js 16.x, which still includes aws-sdk.
+
+## Production Deployment with S3 and CloudFront
+
+### S3 Website Bucket Setup
+
+1. Create an S3 bucket for website hosting:
+```bash
+aws s3 mb s3://dee-en-eh-react-app
+```
+
+2. Configure the bucket for static website hosting:
+```bash
+aws s3 website s3://dee-en-eh-react-app --index-document index.html --error-document index.html
+```
+
+3. Create a bucket policy for public read access:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublicReadGetObject",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::dee-en-eh-react-app/*"
+    }
+  ]
+}
+```
+
+4. Apply the bucket policy:
+```bash
+aws s3api put-bucket-policy --bucket dee-en-eh-react-app --policy file://bucket-policy.json
+```
+
+5. Set up CORS configuration:
+```bash
+aws s3api put-bucket-cors --bucket dee-en-eh-react-app --cors-configuration file://cors-config.json
+```
+
+### CloudFront Distribution Setup
+
+1. Create an SSL certificate in AWS Certificate Manager (ACM):
+   - Certificate ARN: `arn:aws:acm:us-east-1:390844768511:certificate/9d066d29-7d82-47fa-87b8-3b16bc1fb4ba`
+
+2. Create a CloudFront distribution:
+   - Origin: `http://dee-en-eh-react-app.s3-website-us-east-1.amazonaws.com/`
+   - Distribution ID: `E3QB86OHQX5C36`
+   - Alternate Domain Names (CNAMEs): `digitaldna.red`
+   - SSL Certificate: Custom SSL Certificate (ACM)
+   - Default Root Object: `index.html`
+   - Custom Error Responses: Configure for SPA routing
+     - HTTP Error Code: 403, Response Page Path: /index.html, HTTP Response Code: 200
+     - HTTP Error Code: 404, Response Page Path: /index.html, HTTP Response Code: 200
+
+### Route 53 DNS Configuration
+
+1. Create a hosted zone for `digitaldna.red`
+
+2. Add an A record for the root domain pointing to the CloudFront distribution:
+   - Record Type: A
+   - Name: digitaldna.red
+   - Value: Alias to CloudFront distribution (E3QB86OHQX5C36)
+
+### Google OAuth Configuration
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials) for project `dee-en-eh-client`
+
+2. Add the following Authorized JavaScript Origins to your OAuth Client ID:
+   - `https://digitaldna.red`
+   - `http://dee-en-eh-react-app.s3-website-us-east-1.amazonaws.com`
+
+### Deployment Script
+
+Use the `troubleshoot-s3-deploy.sh` script for manual deployments:
+
+```bash
+./troubleshoot-s3-deploy.sh
+```
+
+Or use AWS CodePipeline with the provided `buildspec.yml` for automated deployments.
+
+### CloudFront Cache Invalidation
+
+After deploying changes, invalidate the CloudFront cache:
+
+```bash
+aws cloudfront create-invalidation --distribution-id E3QB86OHQX5C36 --paths "/*"
+```
+
+This ensures that users see the latest version of your app.

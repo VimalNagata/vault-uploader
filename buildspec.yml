@@ -29,7 +29,7 @@ phases:
     commands:
       - echo Deploying to S3 bucket...
       - aws s3 sync build/ s3://dee-en-eh-react-app --delete
-      - aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_DISTRIBUTION_ID} --paths "/*" || echo "CloudFront invalidation skipped"
+      - aws cloudfront create-invalidation --distribution-id E3QB86OHQX5C36 --paths "/*"
       - echo Deployment completed
 
 artifacts:
