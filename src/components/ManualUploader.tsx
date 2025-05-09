@@ -69,6 +69,32 @@ const ManualUploader: React.FC<ManualUploaderProps> = ({ username, onUploadCompl
       setIsUploading(true);
       setError(null);
       
+      // Force refresh credentials before upload to avoid signature issues
+      try {
+        await S3Service.refreshCredentials();
+        console.log("AWS credentials refreshed before upload");
+      } catch (credError) {
+        console.error("Failed to refresh credentials:", credError);
+        throw new Error(`Authentication error: ${credError instanceof Error ? credError.message : 'Unknown error'}`);
+      }
+      
+      // Get user info from local storage
+      const userInfoStr = localStorage.getItem('dna_user_info');
+      if (!userInfoStr) {
+        throw new Error("User information not found. Please sign in again.");
+      }
+      
+      let userInfo;
+      try {
+        userInfo = JSON.parse(userInfoStr);
+      } catch (e) {
+        console.error("Failed to parse user info:", e);
+        throw new Error("Invalid user information. Please sign in again.");
+      }
+      
+      const s3Prefix = userInfo.s3Prefix || username;
+      console.log(`Using S3 prefix for upload: ${s3Prefix}`);
+      
       // Process files in batches to show progress
       const batchSize = 5;
       const totalFiles = files.length;
@@ -78,7 +104,10 @@ const ManualUploader: React.FC<ManualUploaderProps> = ({ username, onUploadCompl
         const batch = files.slice(i, i + batchSize);
         const batchPaths = relativePaths.slice(i, i + batchSize);
         
-        await S3Service.uploadFolder(batch, '', batchPaths, username);
+        console.log(`Uploading batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(totalFiles/batchSize)}`);
+        
+        // Use s3Prefix from user info instead of username directly
+        await S3Service.uploadFolder(batch, s3Prefix, batchPaths);
         
         processed += batch.length;
         setUploadProgress(Math.floor((processed / totalFiles) * 100));

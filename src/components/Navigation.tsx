@@ -1,8 +1,18 @@
 import React from 'react';
 import './Navigation.css';
 
+interface UserInfo {
+  email: string;
+  name?: string;
+  picture?: string;
+  given_name?: string;
+  family_name?: string;
+  provider: string;
+}
+
 interface NavigationProps {
   username: string;
+  userInfo: UserInfo | null;
   currentPage: string;
   onNavigate: (page: string) => void;
   onLogout: () => void;
@@ -10,10 +20,13 @@ interface NavigationProps {
 
 const Navigation: React.FC<NavigationProps> = ({ 
   username, 
+  userInfo,
   currentPage, 
   onNavigate, 
   onLogout 
 }) => {
+  const displayName = userInfo?.name || userInfo?.given_name || username;
+  
   return (
     <nav className="main-nav">
       <div className="nav-logo">
@@ -33,7 +46,17 @@ const Navigation: React.FC<NavigationProps> = ({
       </ul>
       
       <div className="nav-user">
-        <span className="username">{username}</span>
+        {userInfo?.picture && (
+          <img 
+            src={userInfo.picture} 
+            alt="Profile" 
+            className="user-avatar" 
+          />
+        )}
+        <div className="user-info">
+          <span className="display-name">{displayName}</span>
+          <span className="username">{username}</span>
+        </div>
         <button onClick={onLogout} className="logout-button">Sign Out</button>
       </div>
     </nav>

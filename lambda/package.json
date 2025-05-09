@@ -1,0 +1,19 @@
+{
+  "name": "dee-en-eh-data-vault-lambda",
+  "version": "1.0.0",
+  "description": "Lambda functions for Dee-en-eh Data Vault",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:creds": "mkdir -p dist && rm -rf node_modules && npm install --production && zip -r dist/get-aws-credentials.zip get-aws-credentials.js node_modules && rm -rf node_modules",
+    "build:auth": "mkdir -p dist && rm -rf node_modules && npm install google-auth-library --production && zip -r dist/google-jwt-authorizer.zip google-jwt-authorizer.js node_modules && rm -rf node_modules",
+    "build": "npm run build:creds && npm run build:auth"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.1469.0",
+    "google-auth-library": "^8.9.0"
+  },
+  "devDependencies": {
+    "aws-lambda": "^1.0.7"
+  }
+}

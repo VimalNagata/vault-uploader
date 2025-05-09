@@ -8,6 +8,8 @@
 
 # production
 /build
+/dist
+**/dist/*.zip
 
 # misc
 .DS_Store
@@ -22,3 +24,6 @@ yarn-error.log*
 
 # environment variables
 .env
+
+# Lambda packages
+**/*.zip

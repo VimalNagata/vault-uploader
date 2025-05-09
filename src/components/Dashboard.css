@@ -18,9 +18,23 @@
 }
 
 .dashboard-intro p {
-  margin: 0;
+  margin: 0 0 10px 0;
   line-height: 1.6;
   color: #34495e;
+}
+
+.dashboard-intro p:last-child {
+  margin-bottom: 0;
+}
+
+.google-account-info {
+  background-color: #f0f8ff;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  margin-top: 10px;
+  color: #4285f4;
+  display: inline-block;
 }
 
 .dashboard-cards {

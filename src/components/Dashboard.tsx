@@ -1,5 +1,14 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import './Dashboard.css';
+
+interface UserInfo {
+  email: string;
+  name?: string;
+  picture?: string;
+  given_name?: string;
+  family_name?: string;
+  provider: string;
+}
 
 interface DashboardProps {
   username: string;
@@ -7,15 +16,37 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  
+  useEffect(() => {
+    // Get user info from localStorage if available
+    const savedUserInfo = localStorage.getItem('dna_user_info');
+    if (savedUserInfo) {
+      try {
+        const parsedUserInfo = JSON.parse(savedUserInfo);
+        setUserInfo(parsedUserInfo);
+      } catch (err) {
+        console.error('Failed to parse user info from localStorage', err);
+      }
+    }
+  }, []);
+  
+  const displayName = userInfo?.given_name || userInfo?.name?.split(' ')[0] || username;
+  
   return (
     <div className="dashboard-container">
-      <h2>Welcome to Your Dee-en-eh Data Vault, {username}!</h2>
+      <h2>Welcome to Your Dee-en-eh Data Vault, {displayName}!</h2>
       
       <div className="dashboard-intro">
         <p>
           Your personal data vault allows you to securely upload, manage, and view your data
           in one centralized and protected location.
         </p>
+        {userInfo?.provider === 'google' && (
+          <p className="google-account-info">
+            You are signed in with your Google account ({userInfo.email}).
+          </p>
+        )}
       </div>
       
       <div className="dashboard-cards">

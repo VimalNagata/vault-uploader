@@ -1,142 +1,300 @@
-# Dee-en-eh Data Vault
+# Dee-en-eh Data Vault Uploader
 
-A secure application for storing and managing personal data with multiple upload methods.
+A secure application for uploading and managing personal data with Google authentication and AWS S3 storage.
 
 ## Features
 
-- User authentication with secure login
-- Two data upload methods:
-  - Manual file/folder upload with drag and drop functionality
-  - Email data import from Google Mail
-- Secure storage to AWS S3 with custom vault structure
-- File organization in personal vault structure (`<username>/vault/rawdata/`)
-- File viewing and management interface with search and filtering
-- Dashboard with quick access to key functions
+- Secure authentication with Google OAuth
+- Temporary AWS credentials generated per user
+- Fine-grained access control for S3 objects
+- User-specific folders for data separation
+- Lightweight React frontend
+- Serverless backend using AWS Lambda and API Gateway
 
-## Setup and Installation
+## Architecture
+
+This application uses the following components:
+
+1. **Frontend**: React application with TypeScript
+2. **Authentication**: Google OAuth for user identity
+3. **Backend**: AWS Lambda functions and API Gateway
+4. **Storage**: Amazon S3 for secure data storage
+5. **Authorization**: Custom Lambda authorizer for token validation
+
+## Setup Instructions
 
 ### Prerequisites
 
-- Node.js (v14 or higher)
-- NPM or Yarn
-- AWS Account with S3 access
-- Google Cloud Console project (for email upload feature)
+- Node.js 14+ and npm
+- AWS account with appropriate permissions
+- Google Cloud Console project with OAuth credentials
+- AWS CLI configured with admin permissions
 
-### Installation
+### Environment Configuration
 
-1. Clone the repository
+1. Create a `.env` file by copying `.env.example` and filling in the values:
+
 ```bash
-git clone https://github.com/yourusername/deeeneh-data-vault.git
-cd deeeneh-data-vault
+cp .env.example .env
 ```
 
-2. Install dependencies
-```bash
-npm install
-```
+2. Configure the following environment variables:
 
-3. Configure environment variables
-Create a `.env` file in the root directory with the following variables:
 ```
-REACT_APP_AWS_REGION=your-region
-REACT_APP_AWS_ACCESS_KEY_ID=your-access-key
-REACT_APP_AWS_SECRET_ACCESS_KEY=your-secret-key
-REACT_APP_S3_BUCKET_NAME=your-bucket-name
-REACT_APP_GOOGLE_CLIENT_ID=your-google-client-id
+# Google Authentication
+REACT_APP_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+
+# AWS Configuration
+REACT_APP_AWS_REGION=us-east-1
+REACT_APP_S3_BUCKET_NAME=your-s3-bucket-name
+
+# API Gateway URL for the get-aws-credentials Lambda function
+REACT_APP_CREDENTIALS_API_URL=https://[API_ID].execute-api.[REGION].amazonaws.com/[STAGE]/credentials
 ```
 
 ### Setting up Google OAuth
 
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-2. Create a new project or select an existing one
-3. Navigate to "APIs & Services" > "Credentials"
-4. Click "Create Credentials" > "OAuth client ID"
-5. Set up the OAuth consent screen if prompted
-6. For Application Type, select "Web application"
-7. Add "http://localhost:3000" as an authorized JavaScript origin
-8. Copy the Client ID and add it to your .env file as REACT_APP_GOOGLE_CLIENT_ID
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project
+3. Navigate to APIs & Services → Credentials
+4. Create an OAuth 2.0 Client ID
+   - For local development: Add `http://localhost:3000` as an authorized JavaScript origin
+   - For production: Add your production domain
+5. Copy the Client ID to the `.env` file
 
-## Usage
+### AWS Lambda Functions Setup
 
-Start the development server:
+1. Navigate to the lambda directory and build the deployment packages:
+
+```bash
+cd lambda
+chmod +x build-lambdas.sh
+./build-lambdas.sh
+```
+
+2. Create an IAM role for S3 access:
+
+```bash
+# Create a Trust Policy file
+cat > s3-access-trust-policy.json <<EOL
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    },
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::[ACCOUNT_ID]:role/[LAMBDA_ROLE]"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOL
+
+# Create the role that will be assumed for S3 access
+aws iam create-role \
+  --role-name s3-user-access-role \
+  --assume-role-policy-document file://s3-access-trust-policy.json
+
+# Attach permissions for S3 operations
+aws iam attach-role-policy \
+  --role-name s3-user-access-role \
+  --policy-arn arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+```
+
+3. Create the Lambda functions in AWS console or using AWS CLI:
+
+```bash
+# Create the Google JWT Authorizer Lambda
+aws lambda create-function \
+  --function-name google-jwt-authorizer \
+  --runtime nodejs16.x \
+  --handler google-jwt-authorizer.handler \
+  --zip-file fileb://dist/google-jwt-authorizer.zip \
+  --role arn:aws:iam::[ACCOUNT_ID]:role/[LAMBDA_ROLE] \
+  --environment "Variables={GOOGLE_CLIENT_ID=[YOUR_CLIENT_ID]}"
+
+# Create the AWS Credentials Lambda with permission to assume role
+aws lambda create-function \
+  --function-name get-aws-credentials \
+  --runtime nodejs16.x \
+  --handler get-aws-credentials.handler \
+  --zip-file fileb://dist/get-aws-credentials.zip \
+  --role arn:aws:iam::[ACCOUNT_ID]:role/[LAMBDA_ROLE_WITH_STS_PERMISSIONS] \
+  --environment "Variables={S3_BUCKET_NAME=[YOUR_BUCKET_NAME],AWS_REGION=[YOUR_REGION],S3_ROLE_ARN=arn:aws:iam::[ACCOUNT_ID]:role/s3-user-access-role}"
+```
+
+Ensure the Lambda role has permission to call `sts:AssumeRole` by attaching a policy like:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Resource": "arn:aws:iam::[ACCOUNT_ID]:role/s3-user-access-role"
+    }
+  ]
+}
+```
+
+The assumed S3 role needs to trust the Lambda execution role. Create a role with this trust policy:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::[ACCOUNT_ID]:role/[LAMBDA_EXECUTION_ROLE]"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+
+Do not attach any permission policies to this role; our Lambda dynamically provides an inline policy during the AssumeRole call that scopes access to the user's prefix only.
+
+> **Important Note**: If using Node.js 18 or higher Lambda runtimes, you must explicitly include the aws-sdk package in your deployment, as it's no longer bundled in the runtime. Our build scripts handle this for you.
+
+3. Set up API Gateway:
+   - Create a new REST API
+   - Create a resource `/credentials`
+   - Set up a GET method with Lambda integration to the get-aws-credentials function
+   - Configure the authorizer to use the google-jwt-authorizer function
+   - Enable CORS on all resources
+   - Deploy the API to a stage
+   - Copy the API URL to the `.env` file
+
+4. Update Lambda functions after changes:
+
+```bash
+# Make scripts executable
+chmod +x update-authorizer.sh update-credentials.sh
+
+# Update the authorizer Lambda
+./update-authorizer.sh
+
+# Update the credentials Lambda
+./update-credentials.sh
+```
+
+### Frontend Setup
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Start the development server:
 
 ```bash
 npm start
 ```
 
-Then open [http://localhost:3000](http://localhost:3000) to view the app in your browser.
-
-### Login
-
-- Default login username: Any username
-- Default password: w1234ard
-
-### Manual Upload
-
-1. Navigate to the "Upload Data" page
-2. Select the "Manual Upload" tab
-3. Drag and drop files or folders to the upload area
-4. Click "Upload to Vault"
-
-### Email Upload
-
-1. Navigate to the "Upload Data" page
-2. Select the "Email Upload" tab
-3. Click "Connect to Google Email"
-4. Authorize the application
-5. Review the retrieved emails
-6. Click "Upload Emails to Vault"
-
-### Viewing Data
-
-1. Navigate to the "View My Data" page
-2. Browse your uploaded files
-3. Filter files by category or search term
-4. View file details and download options
-
-## Building and Deployment
-
-### Building for Production
+3. Build for production:
 
 ```bash
 npm run build
 ```
 
-This creates a `build` folder with the optimized production build.
+## Debugging Common Issues
 
-### Deployment Options
+### CORS Issues
 
-#### Option 1: Netlify, Vercel, or Surge
+1. Ensure your API Gateway has CORS enabled:
+   - OPTIONS method configured for all resources
+   - Access-Control-Allow-Origin header set to the frontend origin
+   - Access-Control-Allow-Headers includes Authorization and Content-Type
+   - Access-Control-Allow-Methods includes GET, OPTIONS
 
-For the simplest deployment, we recommend using a service like Netlify, Vercel, or Surge:
+2. Check the Lambda response headers:
+   - All Lambda functions should return the correct CORS headers
+   - Origin headers in the browser request should match the allowed origins
 
-1. [Netlify](https://www.netlify.com/): `netlify deploy`
-2. [Vercel](https://vercel.com/): `vercel`
-3. [Surge](https://surge.sh/): `surge build`
+### Authentication Problems
 
-These services don't have the same strict secret scanning as GitHub Pages, making deployment easier.
+1. Ensure your Google Client ID is correct in both:
+   - Frontend .env file
+   - Google JWT Authorizer Lambda environment variables
 
-#### Option 2: GitHub Pages
+2. Check browser console for token-related errors
 
-Due to GitHub's secret scanning, deploying to GitHub Pages requires allowing the detected secrets in your repository settings:
+3. Verify the token flow:
+   - Login component gets a valid access token
+   - Token is properly stored in AuthService
+   - Token is included in Authorization header for API calls
 
-1. Build the application with: `npm run build`
-2. Go to your GitHub repository → Settings → Security → Code scanning and analysis → Secret scanning
-3. Find the detected AWS keys
-4. Mark them as "false positive" or "used in tests"
-5. Deploy with: `npm run deploy`
+### AWS Credentials Issues
 
-The GitHub Pages URL will be: `https://[your-github-username].github.io/vault-uploader/`
+1. Ensure the Lambda role has STS:GetFederationToken permissions
 
-**Security Note**: All deployment options use a mock S3 service in production mode. The application will show a "Demo Mode" warning and will only simulate file uploads, not actually connect to AWS.
+2. Check CloudWatch logs for specific error messages
 
-## Security Considerations
+3. Verify the S3 bucket exists and is configured properly
 
-- Never commit your AWS credentials to version control
-- Consider using AWS Cognito or another authentication service for production use
-- Set up appropriate CORS and bucket policies on your S3 bucket
-- For production applications, consider using presigned URLs instead of direct API access
+## Troubleshooting Guide
 
-## License
+### "Failed to fetch" Error
 
-MIT
+1. Check browser network tab for detailed error information
+2. Verify the API Gateway URL is correct in .env
+3. Ensure CORS is properly configured
+4. Check that Lambda functions are returning proper headers
+
+### "Not authenticated" Error
+
+1. Verify Google login is working and token is stored
+2. Check authorizer Lambda logs for token verification errors
+3. Ensure the authorizer is properly configured in API Gateway
+
+### "Error generating credentials" Error
+
+1. Check STS permissions for the Lambda role
+2. Verify S3 bucket name and region in Lambda environment
+3. Check CloudWatch logs for detailed error information
+
+If you see any of these errors:
+- "MissingRequiredParameter: Missing required key 'Name' in params"
+- "UnexpectedParameter: Unexpected key 'RoleSessionName'"
+- "Value at 'name' failed to satisfy constraint: Member must have length less than or equal to 32"
+- "AccessDenied: Cannot call GetFederationToken with session credentials"
+
+```bash
+# Update the credentials Lambda with the fixed version
+cd lambda
+./update-credentials.sh
+```
+
+For the "Cannot call GetFederationToken with session credentials" error, you need to:
+1. Create an IAM role that your Lambda can assume (see IAM role setup instructions)
+2. Update your Lambda environment variables to include S3_ROLE_ARN
+3. Give your Lambda's execution role permission to call sts:AssumeRole
+
+### "Cannot find module 'aws-sdk'" Error 
+
+This error occurs when running Lambda functions with Node.js 18+ runtimes, as AWS no longer bundles aws-sdk in the runtime:
+
+1. Rebuild your Lambda packages:
+```bash
+cd lambda
+./build-lambdas.sh
+```
+
+2. Update your Lambda functions:
+```bash
+./update-credentials.sh
+```
+
+3. Alternatively, downgrade your Lambda runtime to Node.js 16.x, which still includes aws-sdk.
