@@ -138,9 +138,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   return (
     <div className="login-container">
       <div className="login-card">
-        <h2>Dee-en-eh Data Vault</h2>
+        <h2>Digital DNA</h2>
         <p className="login-subtitle">
-          Sign in to securely access your personal data vault
+          Sign in to securely manage and monetize your personal data
         </p>
 
         <div className="login-methods">

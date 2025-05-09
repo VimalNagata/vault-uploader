@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import './Dashboard.css';
+import React, { useEffect, useState } from "react";
+import "./Dashboard.css";
+import S3Service from "../services/S3Service";
 
 interface UserInfo {
   email: string;
@@ -10,6 +11,22 @@ interface UserInfo {
   provider: string;
 }
 
+interface FileCategory {
+  name: string;
+  icon: string;
+  count: number;
+  size: string;
+  lastUpdated: string;
+}
+
+interface Persona {
+  id: string;
+  name: string;
+  type: string;
+  completeness: number;
+  lastUpdated: string;
+}
+
 interface DashboardProps {
   username: string;
   onNavigate: (page: string) => void;
@@ -17,74 +34,515 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  
+  const [isLoading, setIsLoading] = useState(true);
+  const [fileCategories, setFileCategories] = useState<FileCategory[]>([]);
+  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [totalStorage, setTotalStorage] = useState("0 MB");
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Function to load user data - declaring at the top level for use in multiple places
+  const loadUserData = async () => {
+    setIsLoading(true);
+
+    try {
+      // Load file count from S3 - just to get a real count if available
+      const files = await S3Service.listFiles(username);
+      const totalFiles = files.length;
+
+      // Create mock data categories based on real file count if available
+      const mockCategories: FileCategory[] = [
+        {
+          name: "Social Media",
+          icon: "social",
+          count: Math.max(Math.floor(totalFiles * 0.4), 0),
+          size: "24.6 MB",
+          lastUpdated: "2 days ago",
+        },
+        {
+          name: "Financial",
+          icon: "financial",
+          count: Math.max(Math.floor(totalFiles * 0.2), 0),
+          size: "12.3 MB",
+          lastUpdated: "5 days ago",
+        },
+        {
+          name: "Professional",
+          icon: "professional",
+          count: Math.max(Math.floor(totalFiles * 0.3), 0),
+          size: "18.9 MB",
+          lastUpdated: "1 week ago",
+        },
+        {
+          name: "Entertainment",
+          icon: "entertainment",
+          count: Math.max(Math.floor(totalFiles * 0.1), 0),
+          size: "9.1 MB",
+          lastUpdated: "2 weeks ago",
+        },
+      ];
+
+      // Mock personas
+      const mockPersonas: Persona[] = [
+        {
+          id: "p1",
+          name: "Professional Profile",
+          type: "Career",
+          completeness: 85,
+          lastUpdated: "3 days ago",
+        },
+        {
+          id: "p2",
+          name: "Financial Profile",
+          type: "Financial",
+          completeness: 60,
+          lastUpdated: "1 week ago",
+        },
+        {
+          id: "p3",
+          name: "Social Presence",
+          type: "Social",
+          completeness: 70,
+          lastUpdated: "5 days ago",
+        },
+      ];
+
+      // Calculate total storage
+      const totalStorageNum = mockCategories.reduce((acc, cat) => {
+        const sizeNum = parseFloat(cat.size.split(" ")[0]);
+        return acc + sizeNum;
+      }, 0);
+
+      setFileCategories(mockCategories);
+      setPersonas(mockPersonas);
+      setTotalStorage(`${totalStorageNum.toFixed(1)} MB`);
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
+      // Fallback to mock data if S3 fails
+      setFileCategories([
+        {
+          name: "Social Media",
+          icon: "social",
+          count: 5,
+          size: "24.6 MB",
+          lastUpdated: "2 days ago",
+        },
+        {
+          name: "Financial",
+          icon: "financial",
+          count: 3,
+          size: "12.3 MB",
+          lastUpdated: "5 days ago",
+        },
+        {
+          name: "Professional",
+          icon: "professional",
+          count: 4,
+          size: "18.9 MB",
+          lastUpdated: "1 week ago",
+        },
+        {
+          name: "Entertainment",
+          icon: "entertainment",
+          count: 2,
+          size: "9.1 MB",
+          lastUpdated: "2 weeks ago",
+        },
+      ]);
+      setPersonas([
+        {
+          id: "p1",
+          name: "Professional Profile",
+          type: "Career",
+          completeness: 85,
+          lastUpdated: "3 days ago",
+        },
+        {
+          id: "p2",
+          name: "Financial Profile",
+          type: "Financial",
+          completeness: 60,
+          lastUpdated: "1 week ago",
+        },
+        {
+          id: "p3",
+          name: "Social Presence",
+          type: "Social",
+          completeness: 70,
+          lastUpdated: "5 days ago",
+        },
+      ]);
+      setTotalStorage("64.9 MB");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to handle file uploads directly from the dashboard
+  const handleFileUpload = async (files: File[]) => {
+    if (!files.length) return;
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      // Simulate upload progress
+      const timer = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 95) {
+            clearInterval(timer);
+            return prev;
+          }
+          return prev + Math.floor(Math.random() * 10);
+        });
+      }, 300);
+
+      // Get upload paths
+      const paths = files.map(() => "");
+
+      // Actually upload files using S3Service
+      await S3Service.uploadFolder(files, username, paths);
+
+      // Complete the upload
+      clearInterval(timer);
+      setUploadProgress(100);
+
+      // Short timeout to show 100% complete
+      setTimeout(() => {
+        setIsUploading(false);
+        setUploadProgress(0);
+
+        // Refresh data
+        loadUserData();
+      }, 500);
+    } catch (error) {
+      console.error("Error uploading files:", error);
+      setIsUploading(false);
+      setUploadProgress(0);
+      // TODO: Add error notification
+    }
+  };
+
   useEffect(() => {
     // Get user info from localStorage if available
-    const savedUserInfo = localStorage.getItem('dna_user_info');
+    const savedUserInfo = localStorage.getItem("dna_user_info");
     if (savedUserInfo) {
       try {
         const parsedUserInfo = JSON.parse(savedUserInfo);
         setUserInfo(parsedUserInfo);
       } catch (err) {
-        console.error('Failed to parse user info from localStorage', err);
+        console.error("Failed to parse user info from localStorage", err);
       }
     }
-  }, []);
-  
-  const displayName = userInfo?.given_name || userInfo?.name?.split(' ')[0] || username;
-  
+
+    loadUserData();
+  }, [username]);
+
+  const displayName =
+    userInfo?.given_name || userInfo?.name?.split(" ")[0] || username;
+
+  // Icon component to show the different data category icons
+  const CategoryIcon: React.FC<{ type: string }> = ({ type }) => {
+    switch (type) {
+      case "social":
+        return (
+          <div className="category-icon social">
+            <svg
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              stroke="#0a66c2"
+              strokeWidth="2"
+              fill="none"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+        );
+      case "financial":
+        return (
+          <div className="category-icon financial">
+            <svg
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              stroke="#057642"
+              strokeWidth="2"
+              fill="none"
+            >
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+          </div>
+        );
+      case "professional":
+        return (
+          <div className="category-icon professional">
+            <svg
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              stroke="#0a66c2"
+              strokeWidth="2"
+              fill="none"
+            >
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            </svg>
+          </div>
+        );
+      case "entertainment":
+        return (
+          <div className="category-icon entertainment">
+            <svg
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              stroke="#0a66c2"
+              strokeWidth="2"
+              fill="none"
+            >
+              <polygon points="23 7 16 12 23 17 23 7"></polygon>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+            </svg>
+          </div>
+        );
+      default:
+        return (
+          <div className="category-icon default">
+            <svg
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              stroke="#0a66c2"
+              strokeWidth="2"
+              fill="none"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </div>
+        );
+    }
+  };
+
+  // Progress bar component for personas
+  const ProgressBar: React.FC<{ percentage: number; type: string }> = ({
+    percentage,
+    type,
+  }) => {
+    const getColor = () => {
+      switch (type) {
+        case "Career":
+          return "#0a66c2";
+        case "Financial":
+          return "#057642";
+        case "Social":
+          return "#0a66c2";
+        default:
+          return "#0a66c2";
+      }
+    };
+
+    return (
+      <div className="progress-bar-container">
+        <div
+          className="progress-bar-fill"
+          style={{
+            width: `${percentage}%`,
+            backgroundColor: getColor(),
+          }}
+        ></div>
+        <span className="progress-text">{percentage}% Complete</span>
+      </div>
+    );
+  };
+
   return (
     <div className="dashboard-container">
-      <h2>Welcome to Your Dee-en-eh Data Vault, {displayName}!</h2>
-      
-      <div className="dashboard-intro">
-        <p>
-          Your personal data vault allows you to securely upload, manage, and view your data
-          in one centralized and protected location.
-        </p>
-        {userInfo?.provider === 'google' && (
-          <p className="google-account-info">
-            You are signed in with your Google account ({userInfo.email}).
+      <div className="dashboard-header">
+        <div className="dashboard-welcome">
+          <h2>Welcome back, {displayName}</h2>
+          <p className="dashboard-subtitle">
+            Here's an overview of your Digital DNA vault
           </p>
-        )}
-      </div>
-      
-      <div className="dashboard-cards">
-        <div className="dashboard-card">
-          <h3>Upload Data</h3>
-          <p>Use our tools to upload your data to secure storage.</p>
-          <div className="card-options">
-            <span>Options:</span>
-            <ul>
-              <li>Manual file uploads</li>
-              <li>Email data import</li>
-            </ul>
-          </div>
-          <button onClick={() => onNavigate('upload')}>Go to Upload</button>
-        </div>
-        
-        <div className="dashboard-card">
-          <h3>View Your Data</h3>
-          <p>View and manage the data you've uploaded to our system.</p>
-          <div className="card-options">
-            <span>Features:</span>
-            <ul>
-              <li>Browse all files</li>
-              <li>Download data</li>
-              <li>Organize by category</li>
-            </ul>
-          </div>
-          <button onClick={() => onNavigate('view')}>View My Data</button>
         </div>
       </div>
-      
-      <div className="dashboard-help">
-        <h3>Need Help?</h3>
-        <p>
-          If you have questions about your Dee-en-eh Data Vault or need assistance,
-          please contact our support team at <a href="mailto:support@deeeneh.com">support@deeeneh.com</a>.
-        </p>
-      </div>
+
+      {isLoading ? (
+        <div className="loading-indicator">
+          <div className="spinner"></div>
+          <p>Loading your data...</p>
+        </div>
+      ) : (
+        <>
+          {/* Upload Progress Indicator (only shown when uploading) */}
+          {isUploading && (
+            <div className="upload-progress-bar">
+              <div className="progress-bar-container">
+                <div
+                  className="progress-bar-fill"
+                  style={{
+                    width: `${uploadProgress}%`,
+                    backgroundColor: "#0a66c2",
+                  }}
+                ></div>
+              </div>
+              <span className="progress-text">{uploadProgress}% Uploaded</span>
+            </div>
+          )}
+
+          <div className="dashboard-sections">
+            {/* Raw Data Upload Section */}
+            <div className="dashboard-section">
+              <div className="section-header">
+                <h3>Raw Data</h3>
+              </div>
+              <div className="raw-data-container">
+                <div className="metrics-container">
+                  <div className="summary-stats">
+                    <div className="summary-stat">
+                      <span className="stat-value">
+                        {fileCategories.reduce(
+                          (acc, cat) => acc + cat.count,
+                          0
+                        )}
+                      </span>
+                      <span className="stat-label">Files Uploaded</span>
+                    </div>
+                    <div className="stat-divider"></div>
+                    <div className="summary-stat">
+                      <span className="stat-value">{totalStorage}</span>
+                      <span className="stat-label">Total Storage</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dropzone Upload Area */}
+                <div
+                  className="dropzone-area"
+                  onClick={() =>
+                    document.getElementById("file-upload-input")?.click()
+                  }
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const el = e.currentTarget;
+                    el.classList.add("active");
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const el = e.currentTarget;
+                    el.classList.remove("active");
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const el = e.currentTarget;
+                    el.classList.remove("active");
+
+                    // Handle files from drop event
+                    if (e.dataTransfer.items) {
+                      const fileList: File[] = [];
+
+                      // Convert to array and process
+                      for (let i = 0; i < e.dataTransfer.items.length; i++) {
+                        const item = e.dataTransfer.items[i];
+                        if (item.kind === "file") {
+                          const file = item.getAsFile();
+                          if (file) fileList.push(file);
+                        }
+                      }
+
+                      if (fileList.length > 0) {
+                        handleFileUpload(fileList);
+                      }
+                    }
+                  }}
+                >
+                  <div className="upload-icon"></div>
+                  <div className="dropzone-text">
+                    <h4>Drag & drop files or folders here</h4>
+                    <p>Upload CCPA data to enrich your Digital DNA profile</p>
+                  </div>
+                </div>
+              </div>
+
+              <input
+                type="file"
+                id="file-upload-input"
+                multiple
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  if (e.target.files?.length) {
+                    const fileList = Array.from(e.target.files);
+                    handleFileUpload(fileList);
+                  }
+                }}
+              />
+            </div>
+
+            {/* Data Categories Section */}
+            <div className="dashboard-section">
+              <div className="section-header">
+                <h3>Data Categories ({fileCategories.length})</h3>
+              </div>
+
+              <div className="category-cards">
+                {fileCategories.map((category, index) => (
+                  <div className="category-card" key={index}>
+                    <CategoryIcon type={category.icon} />
+                    <div className="category-info">
+                      <h4>{category.name}</h4>
+                      <div className="category-meta">
+                        <span>{category.count} files</span>
+                        <span className="dot-separator">•</span>
+                        <span>{category.size}</span>
+                      </div>
+                      <div className="category-updated">
+                        Updated {category.lastUpdated}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Personas Section */}
+            <div className="dashboard-section">
+              <div className="section-header">
+                <h3>Your Personas ({personas.length})</h3>
+              </div>
+
+              <div className="persona-cards">
+                {personas.map((persona) => (
+                  <div className="persona-card" key={persona.id}>
+                    <div className="persona-header">
+                      <h4>{persona.name}</h4>
+                      <span className="persona-type">{persona.type}</span>
+                    </div>
+                    <ProgressBar
+                      percentage={persona.completeness}
+                      type={persona.type}
+                    />
+                    <div className="persona-footer">
+                      <span>Updated {persona.lastUpdated}</span>
+                      <div className="persona-status">Auto-updating</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

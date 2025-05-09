@@ -1,15 +1,15 @@
 /* HomePage.css */
 :root {
-  --primary-color: #3a86ff;
-  --secondary-color: #4d21fc;
-  --accent-color: #ff006e;
-  --success-color: #2ecc71;
+  --primary-color: #0a66c2;
+  --secondary-color: #004182;
+  --accent-color: #057642;
+  --success-color: #057642;
   --text-color: #333333;
   --text-light: #666666;
-  --background-light: #f8f9fa;
-  --background-dark: #2c3e50;
-  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  --transition-speed: 0.3s;
+  --background-light: #f3f2ef;
+  --background-dark: #1d2226;
+  --card-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05);
+  --transition-speed: 0.2s;
 }
 
 .home-container {
@@ -24,7 +24,7 @@
   display: flex;
   min-height: 90vh;
   padding: 60px 8%;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+  background: #f3f2ef;
   position: relative;
   overflow: hidden;
 }
@@ -77,7 +77,7 @@
   left: 0;
   right: 0;
   height: 8px;
-  background-color: rgba(58, 134, 255, 0.2);
+  background-color: rgba(10, 102, 194, 0.2);
   z-index: -1;
 }
 
@@ -297,7 +297,7 @@
 /* Value Proposition Section */
 .value-section {
   padding: 100px 8%;
-  background: linear-gradient(135deg, #ebf4ff 0%, #e6e6fa 100%);
+  background: var(--background-light);
 }
 
 .value-section h2 {

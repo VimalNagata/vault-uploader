@@ -468,4 +468,6 @@ class S3Service {
   }
 }
 
+// File categorization will be implemented in the backend
+
 export default new S3Service();

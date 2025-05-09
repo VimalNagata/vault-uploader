@@ -72,7 +72,7 @@ const App: React.FC = () => {
   const handleLogin = (username: string) => {
     setUsername(username);
     setIsLoggedIn(true);
-    setCurrentPage('dashboard');
+    setCurrentPage('dashboard'); // Always go to dashboard upon login
     
     // Save username to localStorage for persistence
     localStorage.setItem('dna_username', username);
@@ -97,10 +97,18 @@ const App: React.FC = () => {
     // Clear from localStorage
     localStorage.removeItem('dna_username');
     localStorage.removeItem('dna_user_info');
+    
+    // Redirect to home page
+    setCurrentPage('home');
   };
 
   const handleNavigate = (page: string) => {
-    setCurrentPage(page);
+    // Redirect to login page for authenticated features
+    if ((page === 'upload' || page === 'view' || page === 'personas' || page === 'dashboard') && !isLoggedIn) {
+      setCurrentPage('login');
+    } else {
+      setCurrentPage(page);
+    }
   };
 
   const renderContent = () => {
@@ -151,22 +159,21 @@ const App: React.FC = () => {
     >
       <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
         <div className="app">
-          {isLoggedIn ? (
-            <>
-              <Navigation 
-                username={username} 
-                userInfo={userInfo}
-                currentPage={currentPage} 
-                onNavigate={handleNavigate}
-                onLogout={handleLogout}
-              />
-              <main className="app-main">
-                {renderContent()}
-              </main>
-            </>
-          ) : (
-            <Login onLogin={handleLogin} />
-          )}
+          <Navigation 
+            username={username} 
+            userInfo={userInfo}
+            currentPage={currentPage} 
+            onNavigate={handleNavigate}
+            onLogout={handleLogout}
+            isAuthenticated={isLoggedIn}
+          />
+          <main className="app-main">
+            {currentPage === 'login' ? (
+              <Login onLogin={handleLogin} />
+            ) : (
+              renderContent()
+            )}
+          </main>
         </div>
       </GoogleOAuthProvider>
     </ErrorBoundary>

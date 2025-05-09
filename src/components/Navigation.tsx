@@ -16,6 +16,7 @@ interface NavigationProps {
   currentPage: string;
   onNavigate: (page: string) => void;
   onLogout: () => void;
+  isAuthenticated: boolean;
 }
 
 const Navigation: React.FC<NavigationProps> = ({ 
@@ -23,7 +24,8 @@ const Navigation: React.FC<NavigationProps> = ({
   userInfo,
   currentPage, 
   onNavigate, 
-  onLogout 
+  onLogout,
+  isAuthenticated
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const displayName = userInfo?.name || userInfo?.given_name || username;
@@ -41,7 +43,7 @@ const Navigation: React.FC<NavigationProps> = ({
   
   return (
     <nav className="main-nav">
-      <div className="nav-logo" onClick={() => navigateAndClose('home')}>
+      <div className="nav-logo" onClick={() => navigateAndClose(isAuthenticated ? 'dashboard' : 'home')}>
         <h1>Digital DNA</h1>
       </div>
       
@@ -51,37 +53,48 @@ const Navigation: React.FC<NavigationProps> = ({
         <span></span>
       </div>
       
-      <ul className={`nav-links ${mobileMenuOpen ? 'mobile-open' : ''}`}>
-        <li className={currentPage === 'home' ? 'active' : ''}>
-          <button onClick={() => navigateAndClose('home')}>Home</button>
-        </li>
-        <li className={currentPage === 'dashboard' ? 'active' : ''}>
-          <button onClick={() => navigateAndClose('dashboard')}>My Vault</button>
-        </li>
-        <li className={currentPage === 'upload' ? 'active' : ''}>
-          <button onClick={() => navigateAndClose('upload')}>Upload Data</button>
-        </li>
-        <li className={currentPage === 'personas' ? 'active' : ''}>
-          <button onClick={() => navigateAndClose('personas')}>My Personas</button>
-        </li>
-        <li className={currentPage === 'guides' ? 'active' : ''}>
-          <button onClick={() => navigateAndClose('guides')}>Download Guides</button>
-        </li>
-      </ul>
+      {isAuthenticated ? (
+        <ul className={`nav-links ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+          <li className={currentPage === 'dashboard' ? 'active' : ''}>
+            <button onClick={() => navigateAndClose('dashboard')}>Dashboard</button>
+          </li>
+        </ul>
+      ) : (
+        <ul className={`nav-links ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+          <li className={currentPage === 'home' ? 'active' : ''}>
+            <button onClick={() => navigateAndClose('home')}>Home</button>
+          </li>
+          <li className={currentPage === 'guides' ? 'active' : ''}>
+            <button onClick={() => navigateAndClose('guides')}>Data Guides</button>
+          </li>
+          <li className={currentPage === 'pricing' ? 'active' : ''}>
+            <button onClick={() => navigateAndClose('pricing')}>Pricing</button>
+          </li>
+          <li className={currentPage === 'about' ? 'active' : ''}>
+            <button onClick={() => navigateAndClose('about')}>About Us</button>
+          </li>
+        </ul>
+      )}
       
       <div className="nav-user">
-        {userInfo?.picture && (
+        {isAuthenticated && userInfo?.picture && (
           <img 
             src={userInfo.picture} 
             alt="Profile" 
             className="user-avatar" 
           />
         )}
-        <div className="user-info">
-          <span className="display-name">{displayName}</span>
-          <span className="username">{username}</span>
-        </div>
-        <button onClick={onLogout} className="logout-button">Sign Out</button>
+        {isAuthenticated ? (
+          <>
+            <div className="user-info">
+              <span className="display-name">{displayName}</span>
+              <span className="username">{username}</span>
+            </div>
+            <button onClick={onLogout} className="logout-button">Sign Out</button>
+          </>
+        ) : (
+          <button onClick={() => navigateAndClose('login')} className="login-button">Sign In</button>
+        )}
       </div>
       
       {/* Mobile menu backdrop */}
