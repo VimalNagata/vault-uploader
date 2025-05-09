@@ -575,8 +575,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                 type="file"
                 id="file-upload-input"
                 multiple
-                webkitdirectory="true"
-                directory=""
+                {...{ webkitdirectory: "true", directory: "" } as any}
                 style={{ display: "none" }}
                 onChange={(e) => {
                   if (e.target.files?.length) {
