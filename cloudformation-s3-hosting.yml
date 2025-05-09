@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for S3 website hosting with CloudFront'
+
+Parameters:
+  BucketName:
+    Type: String
+    Default: dee-en-eh-react-app
+    Description: Name of the S3 bucket for website hosting
+
+  CertificateARN:
+    Type: String
+    Default: ''
+    Description: ARN of the ACM Certificate for HTTPS (leave empty to skip creating CloudFront distribution)
+
+Resources:
+  # S3 Bucket for Website Hosting
+  WebsiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html  # For SPA routing
+      VersioningConfiguration:
+        Status: Enabled
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - HEAD
+            AllowedOrigins:
+              - '*'
+            MaxAge: 3000
+      Tags:
+        - Key: Purpose
+          Value: ReactHosting
+
+  # S3 Bucket Policy for Public Access
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action:
+              - s3:GetObject
+            Resource: !Join ['', ['arn:aws:s3:::', !Ref WebsiteBucket, '/*']]
+
+  # CloudFront Distribution (Conditional)
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Condition: CreateCloudFront
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !Join ['', [!Ref BucketName, '.s3-website-', !Ref 'AWS::Region', '.amazonaws.com']]
+            Id: S3Origin
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: http-only
+        Enabled: true
+        DefaultRootObject: index.html
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          ForwardedValues:
+            QueryString: true
+            Cookies:
+              Forward: none
+          MinTTL: 0
+          DefaultTTL: 3600
+          MaxTTL: 86400
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateARN
+          SslSupportMethod: sni-only
+        CustomErrorResponses:
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+Conditions:
+  CreateCloudFront: !Not [!Equals [!Ref CertificateARN, '']]
+
+Outputs:
+  WebsiteURL:
+    Description: URL for the website hosted on S3
+    Value: !Join ['', ['http://', !GetAtt WebsiteBucket.DomainName]]
+  S3WebsiteURL:
+    Description: S3 Website URL
+    Value: !Join ['', ['http://', !Ref BucketName, '.s3-website-', !Ref 'AWS::Region', '.amazonaws.com']]
+  CloudFrontURL:
+    Condition: CreateCloudFront
+    Description: CloudFront Distribution URL
+    Value: !Join ['', ['https://', !GetAtt CloudFrontDistribution.DomainName]]
