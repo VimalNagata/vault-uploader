@@ -24,13 +24,6 @@ module.exports = function override(config, env) {
     new webpack.ProvidePlugin({
       process: 'process/browser',
       Buffer: ['buffer', 'Buffer'],
-    }),
-    // Override AWS credentials with safe placeholder values for GitHub Pages deployment
-    new webpack.DefinePlugin({
-      'process.env.REACT_APP_AWS_ACCESS_KEY_ID': JSON.stringify('GITHUB_PAGES_DEMO_KEY'),
-      'process.env.REACT_APP_AWS_SECRET_ACCESS_KEY': JSON.stringify('GITHUB_PAGES_DEMO_SECRET'),
-      'process.env.REACT_APP_MOCK_S3': JSON.stringify('true'),
-      'process.env.REACT_APP_ENABLE_AWS': JSON.stringify('false'),
     })
   );
 

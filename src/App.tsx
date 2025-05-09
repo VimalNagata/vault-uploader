@@ -8,17 +8,12 @@ import UploaderTabs from './components/UploaderTabs';
 import ViewData from './components/ViewData';
 import './App.css';
 
-// Conditionally import S3Service or MockS3Service based on environment
+// Import the real S3Service
 // eslint-disable-next-line import/first
-const S3Service = process.env.REACT_APP_MOCK_S3 === 'true'
-  ? require('./services/MockS3Service').default
-  : require('./services/S3Service').default;
+import S3Service from './services/S3Service';
 
-// Log which service we're using
-console.log(`Using S3 service: ${process.env.REACT_APP_MOCK_S3 === 'true' ? 'MockS3Service' : 'S3Service'}`);
+// Log the environment
 console.log('Environment:', {
-  MOCK_S3: process.env.REACT_APP_MOCK_S3,
-  ENABLE_AWS: process.env.REACT_APP_ENABLE_AWS,
   NODE_ENV: process.env.NODE_ENV
 });
 
@@ -139,11 +134,6 @@ const App: React.FC = () => {
     >
       <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
         <div className="app">
-          {process.env.REACT_APP_MOCK_S3 === 'true' && (
-            <div className="demo-warning">
-              <strong>Demo Mode:</strong> Running with mock S3 service. No real AWS connectivity available.
-            </div>
-          )}
           {isLoggedIn ? (
             <>
               <Navigation 
