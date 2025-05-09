@@ -202,7 +202,7 @@ const EmailUploader: React.FC<EmailUploaderProps> = ({ username }) => {
                 <li>Set up the OAuth consent screen if prompted</li>
                 <li>For Application Type, select "Web application"</li>
                 <li>Add "http://localhost:3000" as an authorized JavaScript origin for local development</li>
-                <li>If deploying to GitHub Pages, also add "https://vimalnagata.github.io" as an authorized JavaScript origin</li>
+                <li>Add your production domain as an authorized JavaScript origin when deploying</li>
                 <li>Copy the Client ID and add it to your .env file as REACT_APP_GOOGLE_CLIENT_ID</li>
                 <li>Restart the application</li>
               </ol>
