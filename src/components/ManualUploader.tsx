@@ -15,38 +15,80 @@ const ManualUploader: React.FC<ManualUploaderProps> = ({ username, onUploadCompl
   const [uploadComplete, setUploadComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Process dropped files and preserve folder structure
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    setFiles(acceptedFiles);
-    
-    // Extract relative paths from FileSystemEntry if available
-    const paths: string[] = [];
-    
-    acceptedFiles.forEach((file: any) => {
-      // Get path from webkitRelativePath (when using input directory) or custom path
-      let path = '';
-      if (file.webkitRelativePath) {
-        // Remove the file name from the path
-        path = file.webkitRelativePath.split('/').slice(0, -1).join('/');
-      } else if (file.path) {
-        // For non-standard path property (some browsers/libraries)
-        path = file.path.split('/').slice(0, -1).join('/');
-      }
+  // Process dropped files and flatten folder structure
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    try {
+      // Process and flatten any folders in the drop
+      const processedFiles = await processFoldersAndFiles(acceptedFiles);
+      setFiles(processedFiles);
       
-      paths.push(path);
-    });
-    
-    setRelativePaths(paths);
-    setError(null);
-    setUploadComplete(false);
+      // No need for relative paths anymore since we flatten the structure
+      setRelativePaths(processedFiles.map(() => ''));
+      setError(null);
+      setUploadComplete(false);
+    } catch (error) {
+      console.error("Error processing dropped files:", error);
+      setError("Failed to process dropped files. Please try again.");
+    }
   }, []);
+  
+  // Function to process folders and flatten file structure
+  const processFoldersAndFiles = async (acceptedFiles: File[]): Promise<File[]> => {
+    const processedFiles: File[] = [];
+    
+    for (const file of acceptedFiles) {
+      const fileAny = file as any;
+      
+      // Check if this file has path information
+      if (fileAny.webkitRelativePath || fileAny.path) {
+        // Get the path without the filename
+        let path = '';
+        if (fileAny.webkitRelativePath) {
+          const pathParts = fileAny.webkitRelativePath.split('/');
+          pathParts.pop(); // Remove filename
+          path = pathParts.join('_');
+        } else if (fileAny.path) {
+          const pathParts = fileAny.path.split('/');
+          pathParts.pop(); // Remove filename 
+          path = pathParts.join('_');
+        }
+        
+        // Only modify name if we have a path
+        if (path) {
+          // Create a flattened name with folder paths
+          const flatName = path + '_' + file.name;
+          
+          // Create a new File object with the flattened name
+          const renamedFile = new File(
+            [file], 
+            flatName,
+            { type: file.type, lastModified: file.lastModified }
+          );
+          
+          processedFiles.push(renamedFile);
+          console.log(`Added file: ${renamedFile.name} (original path: ${path}/${file.name})`);
+        } else {
+          // No path, just add the original file
+          processedFiles.push(file);
+        }
+      } else {
+        // Regular file without path info
+        processedFiles.push(file);
+      }
+    }
+    
+    return processedFiles;
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop,
     // Allow directory dropping
     noClick: false,
     noKeyboard: false,
-    noDrag: false
+    noDrag: false,
+    // Enable directory upload
+    useFsAccessApi: false, // Disable FileSystem Access API to support directory uploads
+    multiple: true
   });
 
   const handleUpload = async () => {
@@ -101,12 +143,13 @@ const ManualUploader: React.FC<ManualUploaderProps> = ({ username, onUploadCompl
       
       for (let i = 0; i < totalFiles; i += batchSize) {
         const batch = files.slice(i, i + batchSize);
-        const batchPaths = relativePaths.slice(i, i + batchSize);
+        // No relative paths needed - filenames already include flattened paths
+        const emptyPaths = batch.map(() => '');
         
         console.log(`Uploading batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(totalFiles/batchSize)}`);
         
-        // Upload files to the stage1 folder
-        await S3Service.uploadFolder(batch, stagePath, batchPaths);
+        // Upload files to the stage1 folder with empty paths since we flattened the structure
+        await S3Service.uploadFolder(batch, stagePath, emptyPaths);
         
         processed += batch.length;
         setUploadProgress(Math.floor((processed / totalFiles) * 100));
@@ -129,7 +172,8 @@ const ManualUploader: React.FC<ManualUploaderProps> = ({ username, onUploadCompl
       
       <div {...getRootProps()} className={`dropzone ${isDragActive ? 'active' : ''}`}>
         <input {...getInputProps()} {...{ directory: "", webkitdirectory: "" } as any} />
-        <p>Drag & drop a folder here, or click to select a folder</p>
+        <p>Drag & drop folders or files here, or click to select</p>
+        <small>Files inside folders will be uploaded with flattened paths in the filename</small>
       </div>
       
       {files.length > 0 && (
@@ -138,7 +182,7 @@ const ManualUploader: React.FC<ManualUploaderProps> = ({ username, onUploadCompl
           <ul>
             {files.slice(0, 5).map((file, index) => (
               <li key={index}>
-                {relativePaths[index] ? `${relativePaths[index]}/` : ''}{file.name} - {(file.size / 1024).toFixed(2)} KB
+                {file.name} - {(file.size / 1024).toFixed(2)} KB
               </li>
             ))}
             {files.length > 5 && <li>...and {files.length - 5} more files</li>}

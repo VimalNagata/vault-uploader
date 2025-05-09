@@ -32,6 +32,70 @@ interface DashboardProps {
   onNavigate: (page: string) => void;
 }
 
+// Function to traverse the file tree and flatten folder structures
+const traverseFileTree = async (entries: any[]): Promise<File[]> => {
+  const allFiles: File[] = [];
+  
+  // Helper function to recursively process entries
+  const processEntry = (entry: any, path: string): Promise<void> => {
+    return new Promise((resolve) => {
+      if (entry.isFile) {
+        // It's a file, get it and add it to our list with path prefix
+        entry.file((file: File) => {
+          // Create a new file with the path embedded in the name
+          const pathParts = path.split('/').filter(p => p);
+          
+          // Only modify name if we have a path
+          if (pathParts.length > 0) {
+            // Create a flattened name with folder paths
+            const flatName = pathParts.join('_') + '_' + file.name;
+            
+            // Create a new File object with the flattened name
+            const renamedFile = new File(
+              [file], 
+              flatName,
+              { type: file.type, lastModified: file.lastModified }
+            );
+            
+            allFiles.push(renamedFile);
+            console.log(`Added file: ${renamedFile.name} (original: ${path}/${file.name})`);
+          } else {
+            // No path, just add the original file
+            allFiles.push(file);
+          }
+          resolve();
+        }, (error: any) => {
+          console.error("Error getting file:", error);
+          resolve();
+        });
+      } else if (entry.isDirectory) {
+        // It's a directory, create a new path and read its contents
+        const dirReader = entry.createReader();
+        const readEntries = () => {
+          dirReader.readEntries(async (entries: any[]) => {
+            if (entries.length) {
+              // Process all entries in this directory
+              const promises = entries.map(e => processEntry(e, path + '/' + entry.name));
+              await Promise.all(promises);
+              readEntries(); // Continue reading if we have more entries
+            } else {
+              resolve(); // No more entries, we're done with this directory
+            }
+          }, (error: any) => {
+            console.error("Error reading directory:", error);
+            resolve();
+          });
+        };
+        readEntries();
+      }
+    });
+  };
+  
+  // Process all root entries in parallel
+  await Promise.all(entries.map(entry => processEntry(entry, '')));
+  return allFiles;
+};
+
 const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -448,7 +512,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                     const el = e.currentTarget;
                     el.classList.remove("active");
                   }}
-                  onDrop={(e) => {
+                  onDrop={async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     const el = e.currentTarget;
@@ -456,19 +520,45 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
 
                     // Handle files from drop event
                     if (e.dataTransfer.items) {
-                      const fileList: File[] = [];
-
-                      // Convert to array and process
-                      for (let i = 0; i < e.dataTransfer.items.length; i++) {
-                        const item = e.dataTransfer.items[i];
-                        if (item.kind === "file") {
-                          const file = item.getAsFile();
-                          if (file) fileList.push(file);
+                      setIsUploading(true);
+                      setUploadProgress(0);
+                      
+                      try {
+                        const fileList: File[] = [];
+                        const entries: any[] = [];
+                        
+                        // Collect all the dropped items
+                        for (let i = 0; i < e.dataTransfer.items.length; i++) {
+                          const item = e.dataTransfer.items[i];
+                          if (item.kind === "file") {
+                            const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+                            
+                            if (entry) {
+                              entries.push(entry);
+                            } else {
+                              // Fallback for browsers that don't support webkitGetAsEntry
+                              const file = item.getAsFile();
+                              if (file) fileList.push(file);
+                            }
+                          }
                         }
-                      }
-
-                      if (fileList.length > 0) {
-                        handleFileUpload(fileList);
+                        
+                        // Process entries that might be files or directories
+                        if (entries.length > 0) {
+                          const processedFiles = await traverseFileTree(entries);
+                          fileList.push(...processedFiles);
+                        }
+                        
+                        console.log(`Found ${fileList.length} files to upload`);
+                        
+                        if (fileList.length > 0) {
+                          handleFileUpload(fileList);
+                        } else {
+                          setIsUploading(false);
+                        }
+                      } catch (error) {
+                        console.error("Error processing dropped items:", error);
+                        setIsUploading(false);
                       }
                     }
                   }}
@@ -485,11 +575,41 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                 type="file"
                 id="file-upload-input"
                 multiple
+                webkitdirectory="true"
+                directory=""
                 style={{ display: "none" }}
                 onChange={(e) => {
                   if (e.target.files?.length) {
                     const fileList = Array.from(e.target.files);
-                    handleFileUpload(fileList);
+                    
+                    // Process files and flatten folder structure
+                    const processedFiles = fileList.map(file => {
+                      // For input[webkitdirectory], files have a webkitRelativePath property
+                      const relativePath = (file as any).webkitRelativePath;
+                      
+                      if (relativePath) {
+                        // Get all directory parts except the filename
+                        const pathParts = relativePath.split('/');
+                        const fileName = pathParts.pop(); // Remove filename
+                        
+                        if (pathParts.length > 0) {
+                          // Create flattened filename with directory structure
+                          const flatName = pathParts.join('_') + '_' + fileName;
+                          
+                          // Create new file with flattened name
+                          return new File(
+                            [file],
+                            flatName,
+                            { type: file.type, lastModified: file.lastModified }
+                          );
+                        }
+                      }
+                      
+                      // Return original file if no path processing needed
+                      return file;
+                    });
+                    
+                    handleFileUpload(processedFiles);
                   }
                 }}
               />
