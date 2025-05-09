@@ -6,6 +6,7 @@ import Navigation from './components/Navigation';
 import Dashboard from './components/Dashboard';
 import UploaderTabs from './components/UploaderTabs';
 import ViewData from './components/ViewData';
+import HomePage from './components/HomePage';
 import './App.css';
 
 // Import the real S3Service
@@ -45,7 +46,7 @@ const App: React.FC = () => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   
   // Navigation state
-  const [currentPage, setCurrentPage] = useState<string>('dashboard');
+  const [currentPage, setCurrentPage] = useState<string>('home');
 
   // Check if user was previously logged in
   useEffect(() => {
@@ -104,14 +105,30 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     switch (currentPage) {
+      case 'home':
+        return <HomePage onNavigate={handleNavigate} />;
       case 'dashboard':
         return <Dashboard username={username} onNavigate={handleNavigate} />;
       case 'upload':
         return <UploaderTabs username={username} onUploadComplete={() => {}} />;
       case 'view':
         return <ViewData username={username} />;
+      case 'personas':
+        // We'll implement this later
+        return <div className="coming-soon-container">
+          <h2>Personas Coming Soon</h2>
+          <p>We're building AI models to analyze your data and create valuable personas.</p>
+          <button onClick={() => handleNavigate('dashboard')}>Back to Dashboard</button>
+        </div>;
+      case 'guides':
+        // We'll implement this later
+        return <div className="coming-soon-container">
+          <h2>Download Guides Coming Soon</h2>
+          <p>We're creating step-by-step guides to help you download your data from major platforms.</p>
+          <button onClick={() => handleNavigate('dashboard')}>Back to Dashboard</button>
+        </div>;
       default:
-        return <Dashboard username={username} onNavigate={handleNavigate} />;
+        return <HomePage onNavigate={handleNavigate} />;
     }
   };
 

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="downloadGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3a86ff" />
+      <stop offset="100%" stop-color="#4d21fc" />
+    </linearGradient>
+  </defs>
+  <circle cx="40" cy="40" r="36" fill="white" stroke="url(#downloadGradient)" stroke-width="2" />
+  <g transform="translate(21, 21)">
+    <path d="M19,0 L19,24 M9,14 L19,24 L29,14" stroke="url(#downloadGradient)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M9,38 L34,38" stroke="url(#downloadGradient)" stroke-width="4" fill="none" stroke-linecap="round" />
+  </g>
+</svg>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './Navigation.css';
 
 interface UserInfo {
@@ -25,23 +25,47 @@ const Navigation: React.FC<NavigationProps> = ({
   onNavigate, 
   onLogout 
 }) => {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const displayName = userInfo?.name || userInfo?.given_name || username;
+  
+  // Toggle mobile menu
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
+  };
+  
+  // Navigation options
+  const navigateAndClose = (page: string) => {
+    onNavigate(page);
+    setMobileMenuOpen(false);
+  };
   
   return (
     <nav className="main-nav">
-      <div className="nav-logo">
-        <h1>Dee-en-eh Vault</h1>
+      <div className="nav-logo" onClick={() => navigateAndClose('home')}>
+        <h1>Digital DNA</h1>
       </div>
       
-      <ul className="nav-links">
+      <div className="mobile-menu-button" onClick={toggleMobileMenu}>
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      
+      <ul className={`nav-links ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+        <li className={currentPage === 'home' ? 'active' : ''}>
+          <button onClick={() => navigateAndClose('home')}>Home</button>
+        </li>
         <li className={currentPage === 'dashboard' ? 'active' : ''}>
-          <button onClick={() => onNavigate('dashboard')}>Dashboard</button>
+          <button onClick={() => navigateAndClose('dashboard')}>My Vault</button>
         </li>
         <li className={currentPage === 'upload' ? 'active' : ''}>
-          <button onClick={() => onNavigate('upload')}>Upload Data</button>
+          <button onClick={() => navigateAndClose('upload')}>Upload Data</button>
         </li>
-        <li className={currentPage === 'view' ? 'active' : ''}>
-          <button onClick={() => onNavigate('view')}>View My Data</button>
+        <li className={currentPage === 'personas' ? 'active' : ''}>
+          <button onClick={() => navigateAndClose('personas')}>My Personas</button>
+        </li>
+        <li className={currentPage === 'guides' ? 'active' : ''}>
+          <button onClick={() => navigateAndClose('guides')}>Download Guides</button>
         </li>
       </ul>
       
@@ -59,6 +83,11 @@ const Navigation: React.FC<NavigationProps> = ({
         </div>
         <button onClick={onLogout} className="logout-button">Sign Out</button>
       </div>
+      
+      {/* Mobile menu backdrop */}
+      {mobileMenuOpen && (
+        <div className="mobile-backdrop" onClick={toggleMobileMenu}></div>
+      )}
     </nav>
   );
 };

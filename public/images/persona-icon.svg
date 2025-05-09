@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="personaGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3a86ff" />
+      <stop offset="100%" stop-color="#4d21fc" />
+    </linearGradient>
+  </defs>
+  <circle cx="40" cy="40" r="36" fill="white" stroke="url(#personaGradient)" stroke-width="2" />
+  <g transform="translate(16, 20)">
+    <!-- Brain shape -->
+    <path d="M24,42 C10,42 9,33 9,30 C9,27 10,23 13,21 C13,21 12,17 15,15 C18,13 21,14 21,14 C21,14 24,10 28,10 C32,10 34,13 34,13 C34,13 38,13 40,16 C42,19 40,21 40,21 C43,22 46,26 46,30 C46,34 43,42 30,42 Z" 
+          stroke="url(#personaGradient)" stroke-width="3" fill="none" stroke-linejoin="round" />
+    
+    <!-- Brain patterns -->
+    <path d="M24,26 C24,26 30,22 30,18" stroke="url(#personaGradient)" stroke-width="2" fill="none" stroke-linecap="round" />
+    <path d="M24,26 C24,26 28,32 34,32" stroke="url(#personaGradient)" stroke-width="2" fill="none" stroke-linecap="round" />
+    <path d="M30,32 C30,32 26,36 25,38" stroke="url(#personaGradient)" stroke-width="2" fill="none" stroke-linecap="round" />
+    <path d="M39,24 C39,24 36,24 34,24" stroke="url(#personaGradient)" stroke-width="2" fill="none" stroke-linecap="round" />
+    <path d="M22,18 C22,18 18,20 16,22" stroke="url(#personaGradient)" stroke-width="2" fill="none" stroke-linecap="round" />
+    <path d="M34,14 C34,14 34,18 32,20" stroke="url(#personaGradient)" stroke-width="2" fill="none" stroke-linecap="round" />
+  </g>
+</svg>
