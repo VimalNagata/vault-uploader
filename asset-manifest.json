@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/vault-uploader/static/css/main.b0b3e69a.css",
+    "main.js": "/vault-uploader/static/js/main.ed5a9382.js",
+    "index.html": "/vault-uploader/index.html",
+    "main.b0b3e69a.css.map": "/vault-uploader/static/css/main.b0b3e69a.css.map",
+    "main.ed5a9382.js.map": "/vault-uploader/static/js/main.ed5a9382.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.b0b3e69a.css",
+    "static/js/main.ed5a9382.js"
+  ]
+}
