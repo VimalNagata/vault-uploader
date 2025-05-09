@@ -4,7 +4,8 @@
  */
 
 // API Gateway endpoint URL - replace with your deployed Lambda function URL
-const CREDENTIALS_API_URL = process.env.REACT_APP_CREDENTIALS_API_URL || '';
+// For production builds, we'll use a hardcoded URL if the environment variable is not available
+const CREDENTIALS_API_URL = process.env.REACT_APP_CREDENTIALS_API_URL || 'https://j5xwiwzfwl.execute-api.us-east-1.amazonaws.com/prod/credentials';
 
 interface AWScredentials {
   accessKeyId: string;
