@@ -47,8 +47,8 @@ const traverseFileTree = async (entries: any[]): Promise<File[]> => {
           
           // Only modify name if we have a path
           if (pathParts.length > 0) {
-            // Create a flattened name with folder paths
-            const flatName = pathParts.join('_') + '_' + file.name;
+            // Create a flattened name with folder paths using a dot delimiter
+            const flatName = pathParts.join('.') + '.' + file.name;
             
             // Create a new File object with the flattened name
             const renamedFile = new File(
@@ -592,8 +592,8 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                         const fileName = pathParts.pop(); // Remove filename
                         
                         if (pathParts.length > 0) {
-                          // Create flattened filename with directory structure
-                          const flatName = pathParts.join('_') + '_' + fileName;
+                          // Create flattened filename with directory structure using dot delimiter
+                          const flatName = pathParts.join('.') + '.' + fileName;
                           
                           // Create new file with flattened name
                           return new File(

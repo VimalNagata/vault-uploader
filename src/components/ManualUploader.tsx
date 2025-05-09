@@ -46,17 +46,17 @@ const ManualUploader: React.FC<ManualUploaderProps> = ({ username, onUploadCompl
         if (fileAny.webkitRelativePath) {
           const pathParts = fileAny.webkitRelativePath.split('/');
           pathParts.pop(); // Remove filename
-          path = pathParts.join('_');
+          path = pathParts.join('.');
         } else if (fileAny.path) {
           const pathParts = fileAny.path.split('/');
           pathParts.pop(); // Remove filename 
-          path = pathParts.join('_');
+          path = pathParts.join('.');
         }
         
         // Only modify name if we have a path
         if (path) {
-          // Create a flattened name with folder paths
-          const flatName = path + '_' + file.name;
+          // Create a flattened name with folder paths using dot delimiter
+          const flatName = path + '.' + file.name;
           
           // Create a new File object with the flattened name
           const renamedFile = new File(
@@ -173,7 +173,7 @@ const ManualUploader: React.FC<ManualUploaderProps> = ({ username, onUploadCompl
       <div {...getRootProps()} className={`dropzone ${isDragActive ? 'active' : ''}`}>
         <input {...getInputProps()} {...{ directory: "", webkitdirectory: "" } as any} />
         <p>Drag & drop folders or files here, or click to select</p>
-        <small>Files inside folders will be uploaded with flattened paths in the filename</small>
+        <small>Files inside folders will be uploaded with flattened paths using dots (example: folder.subfolder.file.txt)</small>
       </div>
       
       {files.length > 0 && (
