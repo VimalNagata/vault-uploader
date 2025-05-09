@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>S3 Hosting Test</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-box {
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e9f5e9;
+            border-radius: 4px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>S3 Static Website Hosting Test</h1>
+    
+    <div class="test-box">
+        <h2>Basic HTML Rendering</h2>
+        <p>If you can see this page, basic HTML rendering is working correctly.</p>
+    </div>
+    
+    <div class="test-box">
+        <h2>JavaScript Test</h2>
+        <p>Click the button below to test if JavaScript is working:</p>
+        <button id="testButton">Run JavaScript Test</button>
+        <div id="result"></div>
+    </div>
+
+    <div class="test-box">
+        <h2>Browser Information</h2>
+        <p id="browser-info">Loading browser information...</p>
+    </div>
+
+    <script>
+        // JavaScript Test
+        document.getElementById('testButton').addEventListener('click', function() {
+            var result = document.getElementById('result');
+            result.style.display = 'block';
+            result.innerHTML = 'JavaScript is working correctly! Current time: ' + new Date().toLocaleTimeString();
+        });
+
+        // Browser Info
+        document.getElementById('browser-info').textContent = 'Browser: ' + 
+            navigator.userAgent + ' | Time: ' + new Date().toLocaleString();
+    </script>
+</body>
+</html>
