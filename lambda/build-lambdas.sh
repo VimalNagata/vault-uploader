@@ -56,4 +56,16 @@ create_lambda_package "get-aws-credentials" '"aws-sdk": "^2.1469.0"'
 echo "Building google-jwt-authorizer Lambda..."
 create_lambda_package "google-jwt-authorizer" '"google-auth-library": "^8.9.0"'
 
+echo "Building get-user-data-metrics Lambda..."
+create_lambda_package "get-user-data-metrics" '"aws-sdk": "^2.1469.0"'
+
+echo "Building categorize-user-data Lambda..."
+create_lambda_package "categorize-user-data" '"aws-sdk": "^2.1469.0"'
+
+echo "Building data-processing-orchestrator Lambda..."
+create_lambda_package "data-processing-orchestrator" '"aws-sdk": "^2.1469.0"'
+
+echo "Building persona-builder Lambda..."
+create_lambda_package "persona-builder" '"aws-sdk": "^2.1469.0"'
+
 echo "All Lambda packages created successfully!"

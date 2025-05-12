@@ -1,0 +1,22 @@
+{
+  "LambdaFunctionConfigurations": [
+    {
+      "Id": "AutoCategorizeTrigger",
+      "LambdaFunctionArn": "arn:aws:lambda:us-east-1:ACCOUNT_ID:function:categorize-user-data",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            {
+              "Name": "prefix",
+              "Value": "*/stage1/"
+            }
+          ]
+        },
+        "Size": {
+          "LessThan": 1048576
+        }
+      }
+    }
+  ]
+}
