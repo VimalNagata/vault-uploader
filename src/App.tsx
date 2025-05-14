@@ -7,6 +7,8 @@ import Dashboard from './components/Dashboard';
 import UploaderTabs from './components/UploaderTabs';
 import ViewData from './components/ViewData';
 import HomePage from './components/HomePage';
+import RawData from './components/RawData';
+import CategoryDetail from './components/CategoryDetail';
 import './App.css';
 
 // Import the real S3Service
@@ -104,7 +106,8 @@ const App: React.FC = () => {
 
   const handleNavigate = (page: string) => {
     // Redirect to login page for authenticated features
-    if ((page === 'upload' || page === 'view' || page === 'personas' || page === 'dashboard') && !isLoggedIn) {
+    if ((page === 'upload' || page === 'view' || page === 'personas' || page === 'dashboard' || 
+        page === 'rawdata' || page.startsWith('category/')) && !isLoggedIn) {
       setCurrentPage('login');
     } else {
       setCurrentPage(page);
@@ -112,6 +115,16 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
+    // Check if the page is a category detail page
+    if (currentPage.startsWith('category/')) {
+      const categoryName = currentPage.replace('category/', '');
+      return <CategoryDetail 
+        username={username} 
+        category={categoryName} 
+        onBack={() => handleNavigate('dashboard')} 
+      />;
+    }
+    
     switch (currentPage) {
       case 'home':
         return <HomePage onNavigate={handleNavigate} />;
@@ -121,6 +134,8 @@ const App: React.FC = () => {
         return <UploaderTabs username={username} onUploadComplete={() => {}} />;
       case 'view':
         return <ViewData username={username} />;
+      case 'rawdata':
+        return <RawData username={username} />;
       case 'personas':
         // We'll implement this later
         return <div className="coming-soon-container">

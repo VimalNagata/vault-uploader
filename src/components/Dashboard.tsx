@@ -1,6 +1,25 @@
 import React, { useEffect, useState } from "react";
 import "./Dashboard.css";
 import S3Service, { DataStage, getUserStagePath } from "../services/S3Service";
+import FileTree from "./FileTree";
+
+// Helper function to get category summaries
+const getCategorySummary = (categoryType: string): string => {
+  const summaries: Record<string, string> = {
+    social: "Your social media data includes profile information, posts, and interactions from various platforms.",
+    financial: "Your financial data includes transactions, account information, and spending patterns.",
+    professional: "Your professional data includes employment history, skills, and workplace interactions.",
+    entertainment: "Your entertainment data includes media preferences, streaming history, and content interactions.",
+    communication: "Your communication data includes messaging and email interactions with contacts.",
+    location: "Your location data includes places visited, travel patterns, and location history.",
+    shopping: "Your shopping data includes purchase history, preferences, and shopping patterns.",
+    health: "Your health and wellness data includes fitness metrics, health records, and wellness activities.",
+    search: "Your search data includes search queries, browsing history, and content interests.",
+    device: "Your device data includes information about device usage, settings, and applications.",
+  };
+  
+  return summaries[categoryType] || `Analysis of your ${categoryType} data from various sources.`;
+};
 
 interface UserInfo {
   email: string;
@@ -17,6 +36,7 @@ interface FileCategory {
   count: number;
   size: string;
   lastUpdated: string;
+  fileExamples?: string[];
 }
 
 interface Persona {
@@ -25,6 +45,11 @@ interface Persona {
   type: string;
   completeness: number;
   lastUpdated: string;
+  summary?: string;
+  insights?: string[];
+  dataPoints?: string[];
+  traits?: Record<string, any>;
+  sources?: string[];
 }
 
 interface DashboardProps {
@@ -35,64 +60,73 @@ interface DashboardProps {
 // Function to traverse the file tree and flatten folder structures
 const traverseFileTree = async (entries: any[]): Promise<File[]> => {
   const allFiles: File[] = [];
-  
+
   // Helper function to recursively process entries
   const processEntry = (entry: any, path: string): Promise<void> => {
     return new Promise((resolve) => {
       if (entry.isFile) {
         // It's a file, get it and add it to our list with path prefix
-        entry.file((file: File) => {
-          // Create a new file with the path embedded in the name
-          const pathParts = path.split('/').filter(p => p);
-          
-          // Only modify name if we have a path
-          if (pathParts.length > 0) {
-            // Create a flattened name with folder paths using a dot delimiter
-            const flatName = pathParts.join('.') + '.' + file.name;
-            
-            // Create a new File object with the flattened name
-            const renamedFile = new File(
-              [file], 
-              flatName,
-              { type: file.type, lastModified: file.lastModified }
-            );
-            
-            allFiles.push(renamedFile);
-            console.log(`Added file: ${renamedFile.name} (original: ${path}/${file.name})`);
-          } else {
-            // No path, just add the original file
-            allFiles.push(file);
+        entry.file(
+          (file: File) => {
+            // Create a new file with the path embedded in the name
+            const pathParts = path.split("/").filter((p) => p);
+
+            // Only modify name if we have a path
+            if (pathParts.length > 0) {
+              // Create a flattened name with folder paths using a dot delimiter
+              const flatName = pathParts.join(".") + "." + file.name;
+
+              // Create a new File object with the flattened name
+              const renamedFile = new File([file], flatName, {
+                type: file.type,
+                lastModified: file.lastModified,
+              });
+
+              allFiles.push(renamedFile);
+              console.log(
+                `Added file: ${renamedFile.name} (original: ${path}/${file.name})`
+              );
+            } else {
+              // No path, just add the original file
+              allFiles.push(file);
+            }
+            resolve();
+          },
+          (error: any) => {
+            console.error("Error getting file:", error);
+            resolve();
           }
-          resolve();
-        }, (error: any) => {
-          console.error("Error getting file:", error);
-          resolve();
-        });
+        );
       } else if (entry.isDirectory) {
         // It's a directory, create a new path and read its contents
         const dirReader = entry.createReader();
         const readEntries = () => {
-          dirReader.readEntries(async (entries: any[]) => {
-            if (entries.length) {
-              // Process all entries in this directory
-              const promises = entries.map(e => processEntry(e, path + '/' + entry.name));
-              await Promise.all(promises);
-              readEntries(); // Continue reading if we have more entries
-            } else {
-              resolve(); // No more entries, we're done with this directory
+          dirReader.readEntries(
+            async (entries: any[]) => {
+              if (entries.length) {
+                // Process all entries in this directory
+                const promises = entries.map((e) =>
+                  processEntry(e, path + "/" + entry.name)
+                );
+                await Promise.all(promises);
+                readEntries(); // Continue reading if we have more entries
+              } else {
+                resolve(); // No more entries, we're done with this directory
+              }
+            },
+            (error: any) => {
+              console.error("Error reading directory:", error);
+              resolve();
             }
-          }, (error: any) => {
-            console.error("Error reading directory:", error);
-            resolve();
-          });
+          );
         };
         readEntries();
       }
     });
   };
-  
+
   // Process all root entries in parallel
-  await Promise.all(entries.map(entry => processEntry(entry, '')));
+  await Promise.all(entries.map((entry) => processEntry(entry, "")));
   return allFiles;
 };
 
@@ -105,141 +139,223 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  // State for file tree
+  const [fileTree, setFileTree] = useState<any>(null);
+  const [rawFiles, setRawFiles] = useState<any[]>([]);
+
+  // Utility function to format file sizes
+  const formatBytes = (bytes: number, decimals: number = 2): string => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return (
+      parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + " " + sizes[i]
+    );
+  };
+
+  // Utility function to calculate relative time
+  const getRelativeTimeString = (date: Date | null): string => {
+    if (!date) return "Never";
+
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    const diffWeeks = Math.floor(diffDays / 7);
+
+    if (diffSecs < 60) return "Just now";
+    if (diffMins < 60)
+      return `${diffMins} minute${diffMins > 1 ? "s" : ""} ago`;
+    if (diffHours < 24)
+      return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    if (diffDays < 7)
+      return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+    if (diffWeeks < 5)
+      return `${diffWeeks} week${diffWeeks > 1 ? "s" : ""} ago`;
+    return date.toLocaleDateString();
+  };
+
+  // Process categorized data to create category cards
+  const processCategorizedData = (categorized: any) => {
+    const { files, categoryTypes } = categorized;
+    
+    if (!files || Object.keys(files).length === 0) {
+      return [];
+    }
+    
+    // Initialize category metrics with file examples array
+    const categories: Record<string, { 
+      count: number, 
+      size: number, 
+      lastUpdated: string | null, 
+      fileExamples: string[] 
+    }> = {};
+    
+    // Process each categorized file
+    Object.entries(files).forEach(([fileName, fileData]: [string, any]) => {
+      if (fileData.categories) {
+        // For each category in the file
+        Object.keys(fileData.categories).forEach(category => {
+          if (!categories[category]) {
+            categories[category] = { 
+              count: 0, 
+              size: 0, 
+              lastUpdated: null, 
+              fileExamples: [] 
+            };
+          }
+          
+          // Increment count
+          categories[category].count++;
+          
+          // Add file to examples if we have fewer than 5 examples
+          if (categories[category].fileExamples.length < 5) {
+            // Get simplified filename (remove path)
+            const simpleName = fileName.split('/').pop() || fileName;
+            if (!categories[category].fileExamples.includes(simpleName)) {
+              categories[category].fileExamples.push(simpleName);
+            }
+          }
+          
+          // Update last updated if newer
+          const fileDate = new Date(fileData.lastUpdated || new Date()).toISOString();
+          if (!categories[category].lastUpdated || 
+              (categories[category].lastUpdated && fileDate > (categories[category].lastUpdated || ''))) {
+            categories[category].lastUpdated = fileDate;
+          }
+        });
+      }
+    });
+    
+    // Create category cards
+    return Object.entries(categories).map(([type, metrics]) => ({
+      name: type.charAt(0).toUpperCase() + type.slice(1),
+      icon: type,
+      count: metrics.count,
+      size: formatBytes(metrics.size || 0),
+      lastUpdated: getRelativeTimeString(new Date(metrics.lastUpdated || new Date())),
+      fileExamples: metrics.fileExamples
+    }));
+  };
+  
+  // Process personas data to create persona cards
+  const processPersonas = (personas: Record<string, any>) => {
+    if (!personas || Object.keys(personas).length === 0) {
+      return [];
+    }
+    
+    return Object.entries(personas).map(([type, data]) => ({
+      id: type,
+      name: data.name || `${type.charAt(0).toUpperCase() + type.slice(1)} Profile`,
+      type: type.charAt(0).toUpperCase() + type.slice(1),
+      completeness: data.completeness || 0,
+      lastUpdated: getRelativeTimeString(new Date(data.lastUpdated || new Date())),
+      summary: data.summary || undefined,
+      insights: data.insights || [],
+      dataPoints: data.dataPoints || [],
+      traits: data.traits || {},
+      sources: data.sources || []
+    }));
+  };
+
   // Function to load user data - declaring at the top level for use in multiple places
   const loadUserData = async () => {
     setIsLoading(true);
 
     try {
-      // Load file count from S3 stage1 (raw data) - just to get a real count if available
-      const stagePath = getUserStagePath(username, DataStage.RAW_DATA);
-      const files = await S3Service.listFiles(stagePath);
-      const totalFiles = files.length;
+      // Instead of using S3Service.listFiles directly, use the new metrics API
+      // Include data from all stages to display analyzed data and insights
+      const userData = await S3Service.getUserDataMetrics(
+        username,
+        DataStage.YOUR_DATA,
+        true
+      );
+
+      // Extract metrics and other data
+      // Destructure with defaults to handle missing properties
+      const { 
+        metrics, 
+        fileTree, 
+        files,
+        categorized = { files: {}, categoryTypes: [] },
+        personas = null
+      } = userData;
+
+      console.log(
+        `Retrieved metrics: ${metrics.fileCount} files, ${metrics.totalSizeFormatted} total size`
+      );
+      console.log(`Data includes categorized: ${!!userData.categorized}, personas: ${!!userData.personas}`);
+
+      // Save file tree and raw files for later use
+      setFileTree(fileTree);
+      setRawFiles(files);
+
+      // Update total storage directly from metrics
+      setTotalStorage(metrics.totalSizeFormatted);
       
-      console.log(`Found ${totalFiles} files in ${stagePath}`);
+      // Reset categories and personas arrays initially
+      setFileCategories([]);
+      setPersonas([]);
+      
+      // Update categories if available
+      if (userData.categorized && categorized.files && Object.keys(categorized.files).length > 0) {
+        console.log("Processing categorized data from API response");
+        const categoryData = processCategorizedData(categorized);
+        if (categoryData.length > 0) {
+          console.log(`Setting ${categoryData.length} categories in state`);
+          setFileCategories(categoryData);
+        }
+      } else {
+        console.log("No valid categorized data found in API response");
+      }
+      
+      // Update personas if available
+      if (userData.personas && personas && Object.keys(personas).length > 0) {
+        console.log("Processing personas from API response");
+        const personaData = processPersonas(personas);
+        if (personaData.length > 0) {
+          console.log(`Setting ${personaData.length} personas in state`);
+          setPersonas(personaData);
+        }
+      } else {
+        console.log("No valid persona data found in API response");
+      }
 
-      // Create mock data categories based on real file count if available
-      const mockCategories: FileCategory[] = [
-        {
-          name: "Social Media",
-          icon: "social",
-          count: Math.max(Math.floor(totalFiles * 0.4), 0),
-          size: "24.6 MB",
-          lastUpdated: "2 days ago",
-        },
-        {
-          name: "Financial",
-          icon: "financial",
-          count: Math.max(Math.floor(totalFiles * 0.2), 0),
-          size: "12.3 MB",
-          lastUpdated: "5 days ago",
-        },
-        {
-          name: "Professional",
-          icon: "professional",
-          count: Math.max(Math.floor(totalFiles * 0.3), 0),
-          size: "18.9 MB",
-          lastUpdated: "1 week ago",
-        },
-        {
-          name: "Entertainment",
-          icon: "entertainment",
-          count: Math.max(Math.floor(totalFiles * 0.1), 0),
-          size: "9.1 MB",
-          lastUpdated: "2 weeks ago",
-        },
-      ];
+      // Format the last updated date
+      const lastUpdated = metrics.lastUpdated
+        ? new Date(metrics.lastUpdated)
+        : null;
 
-      // Mock personas
-      const mockPersonas: Persona[] = [
-        {
-          id: "p1",
-          name: "Professional Profile",
-          type: "Career",
-          completeness: 85,
-          lastUpdated: "3 days ago",
-        },
-        {
-          id: "p2",
-          name: "Financial Profile",
-          type: "Financial",
-          completeness: 60,
-          lastUpdated: "1 week ago",
-        },
-        {
-          id: "p3",
-          name: "Social Presence",
-          type: "Social",
-          completeness: 70,
-          lastUpdated: "5 days ago",
-        },
-      ];
+      const lastUpdatedRelative = lastUpdated
+        ? getRelativeTimeString(lastUpdated)
+        : "Never";
 
-      // Calculate total storage
-      const totalStorageNum = mockCategories.reduce((acc, cat) => {
-        const sizeNum = parseFloat(cat.size.split(" ")[0]);
-        return acc + sizeNum;
-      }, 0);
-
-      setFileCategories(mockCategories);
-      setPersonas(mockPersonas);
-      setTotalStorage(`${totalStorageNum.toFixed(1)} MB`);
+      // Only show real categories and personas from the API response
+      // If no categories or personas are available, the UI will show empty lists
+      console.log("Using only real data from the API response");
+      
+      // Note: No mock data is being used. If there's no real data,
+      // the Dashboard will show empty category and persona sections.
     } catch (error) {
       console.error("Error loading dashboard data:", error);
-      // Fallback to mock data if S3 fails
-      setFileCategories([
-        {
-          name: "Social Media",
-          icon: "social",
-          count: 5,
-          size: "24.6 MB",
-          lastUpdated: "2 days ago",
-        },
-        {
-          name: "Financial",
-          icon: "financial",
-          count: 3,
-          size: "12.3 MB",
-          lastUpdated: "5 days ago",
-        },
-        {
-          name: "Professional",
-          icon: "professional",
-          count: 4,
-          size: "18.9 MB",
-          lastUpdated: "1 week ago",
-        },
-        {
-          name: "Entertainment",
-          icon: "entertainment",
-          count: 2,
-          size: "9.1 MB",
-          lastUpdated: "2 weeks ago",
-        },
-      ]);
-      setPersonas([
-        {
-          id: "p1",
-          name: "Professional Profile",
-          type: "Career",
-          completeness: 85,
-          lastUpdated: "3 days ago",
-        },
-        {
-          id: "p2",
-          name: "Financial Profile",
-          type: "Financial",
-          completeness: 60,
-          lastUpdated: "1 week ago",
-        },
-        {
-          id: "p3",
-          name: "Social Presence",
-          type: "Social",
-          completeness: 70,
-          lastUpdated: "5 days ago",
-        },
-      ]);
-      setTotalStorage("64.9 MB");
+      
+      // No mock data - just show error state
+      setFileCategories([]);
+      setPersonas([]);
+      setTotalStorage("0 MB (API Error)");
+      
+      // Set empty file tree and raw files
+      setFileTree({
+        name: "root",
+        type: "folder",
+        children: [],
+        size: 0,
+      });
+      
+      setRawFiles([]);
     } finally {
       setIsLoading(false);
     }
@@ -264,10 +380,10 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
         });
       }, 300);
 
-      // Get raw data stage path
-      const stagePath = getUserStagePath(username, DataStage.RAW_DATA);
-      
-      // Create relative paths within the stage1 folder 
+      // Get "Your Data" stage path
+      const stagePath = getUserStagePath(username, DataStage.YOUR_DATA);
+
+      // Create relative paths within the Your Data folder
       const paths = files.map(() => "");
 
       // Actually upload files using S3Service
@@ -469,104 +585,125 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
           )}
 
           <div className="dashboard-sections">
-            {/* Raw Data Upload Section */}
+            {/* Stage 1: Your Data Upload Section */}
             <div className="dashboard-section">
               <div className="section-header">
-                <h3>Raw Data</h3>
+                <h3>Your Data</h3>
+                <button
+                  className="secondary-button"
+                  onClick={() => onNavigate("rawdata")}
+                >
+                  View All Files
+                </button>
               </div>
               <div className="raw-data-container">
-                <div className="metrics-container">
-                  <div className="summary-stats">
-                    <div className="summary-stat">
-                      <span className="stat-value">
-                        {fileCategories.reduce(
-                          (acc, cat) => acc + cat.count,
-                          0
-                        )}
-                      </span>
-                      <span className="stat-label">Files Uploaded</span>
-                    </div>
-                    <div className="stat-divider"></div>
-                    <div className="summary-stat">
-                      <span className="stat-value">{totalStorage}</span>
-                      <span className="stat-label">Total Storage</span>
-                    </div>
-                  </div>
-                </div>
+                <div className="raw-data-left">
+                  {/* Metrics */}
+                  <div className="metrics-container">
+                    <div className="summary-stats">
+                      <div className="summary-stat">
+                        <span className="stat-value">
+                          {rawFiles.length || 0}
+                        </span>
+                        <span className="stat-label">Files Uploaded</span>
+                      </div>
+                      <div className="stat-divider"></div>
+                      <div className="summary-stat">
+                        <span className="stat-value">{totalStorage}</span>
+                        <span className="stat-label">Total Storage</span>
+                      </div>
+                      <div className="stat-divider"></div>
+                      {/* Dropzone Upload Area */}
+                      <div
+                        className="dropzone-area"
+                        onClick={() =>
+                          document.getElementById("file-upload-input")?.click()
+                        }
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const el = e.currentTarget;
+                          el.classList.add("active");
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const el = e.currentTarget;
+                          el.classList.remove("active");
+                        }}
+                        onDrop={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const el = e.currentTarget;
+                          el.classList.remove("active");
 
-                {/* Dropzone Upload Area */}
-                <div
-                  className="dropzone-area"
-                  onClick={() =>
-                    document.getElementById("file-upload-input")?.click()
-                  }
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const el = e.currentTarget;
-                    el.classList.add("active");
-                  }}
-                  onDragLeave={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const el = e.currentTarget;
-                    el.classList.remove("active");
-                  }}
-                  onDrop={async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const el = e.currentTarget;
-                    el.classList.remove("active");
+                          // Handle files from drop event
+                          if (e.dataTransfer.items) {
+                            setIsUploading(true);
+                            setUploadProgress(0);
 
-                    // Handle files from drop event
-                    if (e.dataTransfer.items) {
-                      setIsUploading(true);
-                      setUploadProgress(0);
-                      
-                      try {
-                        const fileList: File[] = [];
-                        const entries: any[] = [];
-                        
-                        // Collect all the dropped items
-                        for (let i = 0; i < e.dataTransfer.items.length; i++) {
-                          const item = e.dataTransfer.items[i];
-                          if (item.kind === "file") {
-                            const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
-                            
-                            if (entry) {
-                              entries.push(entry);
-                            } else {
-                              // Fallback for browsers that don't support webkitGetAsEntry
-                              const file = item.getAsFile();
-                              if (file) fileList.push(file);
+                            try {
+                              const fileList: File[] = [];
+                              const entries: any[] = [];
+
+                              // Collect all the dropped items
+                              for (
+                                let i = 0;
+                                i < e.dataTransfer.items.length;
+                                i++
+                              ) {
+                                const item = e.dataTransfer.items[i];
+                                if (item.kind === "file") {
+                                  const entry = item.webkitGetAsEntry
+                                    ? item.webkitGetAsEntry()
+                                    : null;
+
+                                  if (entry) {
+                                    entries.push(entry);
+                                  } else {
+                                    // Fallback for browsers that don't support webkitGetAsEntry
+                                    const file = item.getAsFile();
+                                    if (file) fileList.push(file);
+                                  }
+                                }
+                              }
+
+                              // Process entries that might be files or directories
+                              if (entries.length > 0) {
+                                const processedFiles = await traverseFileTree(
+                                  entries
+                                );
+                                fileList.push(...processedFiles);
+                              }
+
+                              console.log(
+                                `Found ${fileList.length} files to upload`
+                              );
+
+                              if (fileList.length > 0) {
+                                handleFileUpload(fileList);
+                              } else {
+                                setIsUploading(false);
+                              }
+                            } catch (error) {
+                              console.error(
+                                "Error processing dropped items:",
+                                error
+                              );
+                              setIsUploading(false);
                             }
                           }
-                        }
-                        
-                        // Process entries that might be files or directories
-                        if (entries.length > 0) {
-                          const processedFiles = await traverseFileTree(entries);
-                          fileList.push(...processedFiles);
-                        }
-                        
-                        console.log(`Found ${fileList.length} files to upload`);
-                        
-                        if (fileList.length > 0) {
-                          handleFileUpload(fileList);
-                        } else {
-                          setIsUploading(false);
-                        }
-                      } catch (error) {
-                        console.error("Error processing dropped items:", error);
-                        setIsUploading(false);
-                      }
-                    }
-                  }}
-                >
-                  <div className="upload-icon"></div>
-                  <div className="dropzone-text">
-                    <h4>Drag & drop files or folders here</h4>
-                    <p>Upload CCPA data to enrich your Digital DNA profile</p>
+                        }}
+                      >
+                        <div className="upload-icon"></div>
+                        <div className="dropzone-text">
+                          <h4>Drag & drop files or folders here</h4>
+                          <p>
+                            Upload CCPA data to generate insights for your Digital DNA
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -575,49 +712,48 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                 type="file"
                 id="file-upload-input"
                 multiple
-                {...{ webkitdirectory: "true", directory: "" } as any}
+                {...({ webkitdirectory: "true", directory: "" } as any)}
                 style={{ display: "none" }}
                 onChange={(e) => {
                   if (e.target.files?.length) {
                     const fileList = Array.from(e.target.files);
-                    
+
                     // Process files and flatten folder structure
-                    const processedFiles = fileList.map(file => {
+                    const processedFiles = fileList.map((file) => {
                       // For input[webkitdirectory], files have a webkitRelativePath property
                       const relativePath = (file as any).webkitRelativePath;
-                      
+
                       if (relativePath) {
                         // Get all directory parts except the filename
-                        const pathParts = relativePath.split('/');
+                        const pathParts = relativePath.split("/");
                         const fileName = pathParts.pop(); // Remove filename
-                        
+
                         if (pathParts.length > 0) {
                           // Create flattened filename with directory structure using dot delimiter
-                          const flatName = pathParts.join('.') + '.' + fileName;
-                          
+                          const flatName = pathParts.join(".") + "." + fileName;
+
                           // Create new file with flattened name
-                          return new File(
-                            [file],
-                            flatName,
-                            { type: file.type, lastModified: file.lastModified }
-                          );
+                          return new File([file], flatName, {
+                            type: file.type,
+                            lastModified: file.lastModified,
+                          });
                         }
                       }
-                      
+
                       // Return original file if no path processing needed
                       return file;
                     });
-                    
+
                     handleFileUpload(processedFiles);
                   }
                 }}
               />
             </div>
 
-            {/* Data Categories Section */}
+            {/* Stage 2: Analyzed Data Section */}
             <div className="dashboard-section">
               <div className="section-header">
-                <h3>Data Categories ({fileCategories.length})</h3>
+                <h3>Analyzed Data ({fileCategories.length})</h3>
               </div>
 
               <div className="category-cards">
@@ -634,16 +770,25 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                       <div className="category-updated">
                         Updated {category.lastUpdated}
                       </div>
+                      <div className="category-summary">
+                        {getCategorySummary(category.name.toLowerCase())}
+                      </div>
+                      <button 
+                        className="text-button view-details-link"
+                        onClick={() => onNavigate(`category/${category.name.toLowerCase()}`)}
+                      >
+                        View Details →
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Personas Section */}
+            {/* Stage 3: Insights Section */}
             <div className="dashboard-section">
               <div className="section-header">
-                <h3>Your Personas ({personas.length})</h3>
+                <h3>Insights ({personas.length})</h3>
               </div>
 
               <div className="persona-cards">
@@ -653,10 +798,61 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                       <h4>{persona.name}</h4>
                       <span className="persona-type">{persona.type}</span>
                     </div>
+                    
+                    {/* Progress bar */}
                     <ProgressBar
                       percentage={persona.completeness}
                       type={persona.type}
                     />
+                    
+                    {/* Summary (if available) */}
+                    {persona.summary && (
+                      <div className="persona-summary">
+                        <p>{persona.summary}</p>
+                      </div>
+                    )}
+                    
+                    {/* Insights (if available) */}
+                    {persona.insights && persona.insights.length > 0 && (
+                      <div className="persona-insights">
+                        <h5>Key Insights:</h5>
+                        <ul>
+                          {persona.insights.slice(0, 3).map((insight, idx) => (
+                            <li key={idx}>{insight}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    
+                    {/* Traits (if available) */}
+                    {persona.traits && Object.keys(persona.traits).length > 0 && (
+                      <div className="persona-traits">
+                        <h5>Traits:</h5>
+                        <div className="traits-list">
+                          {Object.entries(persona.traits).slice(0, 3).map(([key, value]) => (
+                            <div className="trait-item" key={key}>
+                              <span className="trait-key">{key.charAt(0).toUpperCase() + key.slice(1)}:</span>
+                              <span className="trait-value">
+                                {Array.isArray(value) 
+                                  ? value.slice(0, 2).join(', ') + (value.length > 2 ? '...' : '')
+                                  : typeof value === 'object' && value !== null
+                                    ? Object.entries(value).slice(0, 2).map(([k, v]) => `${k}: ${v}`).join(', ') + (Object.keys(value).length > 2 ? '...' : '')
+                                    : String(value)
+                                }
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Source data (if available) */}
+                    {persona.sources && persona.sources.length > 0 && (
+                      <div className="persona-sources">
+                        <span>Based on {persona.sources.length} source{persona.sources.length !== 1 ? 's' : ''}</span>
+                      </div>
+                    )}
+                    
                     <div className="persona-footer">
                       <span>Updated {persona.lastUpdated}</span>
                       <div className="persona-status">Auto-updating</div>
