@@ -266,19 +266,21 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
     setIsLoading(true);
 
     try {
-      // Instead of using S3Service.listFiles directly, use the new metrics API
-      // Include data from all stages to display analyzed data and insights
+      // Use metrics API to get data from all stages with summary mode
+      // This optimizes performance by reducing payload size
       const userData = await S3Service.getUserDataMetrics(
         username,
         DataStage.YOUR_DATA,
-        true
+        true,  // includeAllStages
+        true,  // summaryOnly - we only need metadata for the dashboard
+        undefined, // No stage filter for initial load
+        true  // Skip file tree to reduce payload size
       );
 
       // Extract metrics and other data
       // Destructure with defaults to handle missing properties
       const { 
         metrics, 
-        fileTree, 
         files,
         categorized = { files: {}, categoryTypes: [] },
         personas = null
@@ -289,9 +291,21 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
       );
       console.log(`Data includes categorized: ${!!userData.categorized}, personas: ${!!userData.personas}`);
 
-      // Save file tree and raw files for later use
-      setFileTree(fileTree);
-      setRawFiles(files);
+      // Initialize an empty file tree structure (will be populated on demand)
+      setFileTree({
+        name: 'root',
+        type: 'folder',
+        children: [],
+        size: metrics.totalSize || 0
+      });
+      
+      // In summary mode, files might be empty - that's ok for the dashboard
+      if (files) {
+        setRawFiles(files);
+      } else {
+        console.log("No files included in summary response (expected in summary mode)");
+        setRawFiles([]);
+      }
 
       // Update total storage directly from metrics
       setTotalStorage(metrics.totalSizeFormatted);
@@ -613,6 +627,8 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                         <span className="stat-label">Total Storage</span>
                       </div>
                       <div className="stat-divider"></div>
+                      
+                      {/* File Explorer removed from here to avoid showing in main dashboard */}
                       {/* Dropzone Upload Area */}
                       <div
                         className="dropzone-area"
