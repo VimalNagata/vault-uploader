@@ -293,7 +293,13 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
       console.log(`Data includes categorized: ${!!userData.categorized}, personas: ${!!userData.personas}`);
 
       // Save metrics for use in the UI
-      setMetrics(metrics);
+      // Extract or calculate category counts from the data
+      const enhancedMetrics = {
+        ...metrics,
+        categoryCounts: categorized?.categoryTypes?.length || 
+                       (categorized?.files ? Object.keys(categorized.files).length : 0)
+      };
+      setMetrics(enhancedMetrics);
 
       // Initialize an empty file tree structure (will be populated on demand)
       setFileTree({
@@ -773,7 +779,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
             {/* Stage 2: Analyzed Data Section */}
             <div className="dashboard-section">
               <div className="section-header">
-                <h3>Analyzed Data ({fileCategories.length})</h3>
+                <h3>Analyzed Data ({metrics?.categoryCounts || fileCategories.length})</h3>
               </div>
 
               <div className="category-cards">
