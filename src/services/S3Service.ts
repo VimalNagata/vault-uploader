@@ -716,7 +716,7 @@ class S3Service {
       fileCount: data.metrics.fileCount,
       totalSize: data.metrics.totalSizeFormatted,
       lastUpdated: data.metrics.lastUpdated,
-      treeDepth: data.fileTree.children?.length || 0
+      treeDepth: skipFileTree ? 'skipped' : (data.fileTree?.children?.length || 0)
     });
     
     return data;
