@@ -136,7 +136,23 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
   const [fileCategories, setFileCategories] = useState<FileCategory[]>([]);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [totalStorage, setTotalStorage] = useState("0 MB");
-  const [metrics, setMetrics] = useState<any>(null);
+  // Define interface for enhanced metrics 
+  interface EnhancedMetrics {
+    fileCount: number;
+    totalSize: number;
+    totalSizeFormatted: string;
+    lastUpdated: string | null;
+    stageMetrics?: {
+      stage1: { fileCount: number; totalSize: number };
+      stage2: { fileCount: number; totalSize: number };
+      stage3: { fileCount: number; totalSize: number };
+    };
+    categoryCounts?: number;
+    personaCounts?: number;
+    personaTypes?: string[];
+  }
+  
+  const [metrics, setMetrics] = useState<EnhancedMetrics | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
