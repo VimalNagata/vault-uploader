@@ -664,6 +664,66 @@ exports.handler = async (event) => {
         console.log("No persona data to add to response");
       }
       
+      // Try to get the user master profile
+      try {
+        const userMasterProfile = await getUserMasterProfile(sanitizedEmail);
+        if (userMasterProfile) {
+          console.log(`Found user master profile with ${Object.keys(userMasterProfile.userProfile || {}).length} profile sections`);
+          responsePayload.userMasterProfile = userMasterProfile;
+          
+          // Add the persona types to response for summary mode
+          if (userMasterProfile.categories) {
+            const masterProfileCategories = Object.keys(userMasterProfile.categories);
+            console.log(`Adding ${masterProfileCategories.length} categories from master profile`);
+            
+            // Add unique category types to the list
+            if (!responsePayload.categorized) {
+              responsePayload.categorized = {
+                count: userMasterProfile.fileCount || 0,
+                categoryTypes: masterProfileCategories
+              };
+            } else {
+              // Merge with existing category types
+              const existingTypes = new Set(responsePayload.categorized.categoryTypes || []);
+              for (const category of masterProfileCategories) {
+                if (!existingTypes.has(category)) {
+                  responsePayload.categorized.categoryTypes.push(category);
+                  existingTypes.add(category);
+                }
+              }
+            }
+          }
+          
+          // Add personaTypes from the master profile if available
+          if (!responsePayload.personaTypes && userMasterProfile.userProfile) {
+            responsePayload.personaTypes = [];
+            
+            // Extract persona types from affiliations, demographics, etc.
+            if (userMasterProfile.userProfile.demographics && Object.keys(userMasterProfile.userProfile.demographics).length > 0) {
+              responsePayload.personaTypes.push("demographic");
+            }
+            
+            if (userMasterProfile.userProfile.socialConnections && userMasterProfile.userProfile.socialConnections.length > 0) {
+              responsePayload.personaTypes.push("social");
+            }
+            
+            if (userMasterProfile.userProfile.affiliations && userMasterProfile.userProfile.affiliations.length > 0) {
+              responsePayload.personaTypes.push("professional");
+            }
+            
+            if (userMasterProfile.userProfile.interests && userMasterProfile.userProfile.interests.length > 0) {
+              responsePayload.personaTypes.push("interest");
+            }
+            
+            console.log(`Added ${responsePayload.personaTypes.length} persona types from master profile`);
+          }
+        } else {
+          console.log("No user master profile found");
+        }
+      } catch (profileError) {
+        console.error("Error retrieving user master profile:", profileError);
+      }
+      
       // Calculate approximate response size
       const estimatedSize = JSON.stringify(responsePayload).length;
       console.log(`Estimated response size: ${formatBytes(estimatedSize)}`);
@@ -888,6 +948,38 @@ function buildFileTree(files, prefix) {
   removeParentReferences(tree);
   
   return tree;
-}// Adding a timestamp comment to verify update: Sat May 17 18:04:51 IST 2025
+}
+
+/**
+ * Retrieve the user master profile from S3
+ * @param {string} userPrefix - The user's prefix in S3
+ * @returns {Promise<Object|null>} - The user master profile, or null if not found
+ */
+async function getUserMasterProfile(userPrefix) {
+  const masterFileKey = `${userPrefix}/stage2/user_master_profile.json`;
+  
+  console.log(`Looking for user master profile: ${masterFileKey}`);
+
+  try {
+    const params = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: masterFileKey,
+    };
+
+    const data = await s3.getObject(params).promise();
+    console.log(`Found user master profile, size: ${data.ContentLength || data.Body.length} bytes`);
+    return JSON.parse(data.Body.toString('utf-8'));
+  } catch (error) {
+    // If the file doesn't exist yet, that's ok - just return null
+    if (error.code === 'NoSuchKey') {
+      console.log(`User master profile not found: ${masterFileKey}`);
+      return null;
+    }
+    console.error(`Error retrieving user master profile: ${error.message}`);
+    throw new Error(`Failed to retrieve user master profile: ${error.message}`);
+  }
+}
+
+// Adding a timestamp comment to verify update: Sat May 17 18:04:51 IST 2025
 // Adding comment to verify update: Sat May 17 18:05:19 IST 2025
 // Adding comment to verify update: Sat May 17 18:05:41 IST 2025

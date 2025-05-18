@@ -28,12 +28,25 @@ const corsHeaders = {
   "Access-Control-Allow-Credentials": "true",
 };
 
-// Define persona types
+// Define persona types - including additional types that might come from the user master profile
 const PERSONA_TYPES = {
   FINANCIAL: "financial",
   SOCIAL: "social",
   PROFESSIONAL: "professional",
   ENTERTAINMENT: "entertainment",
+  HEALTH: "health",
+  TRAVEL: "travel",
+  SHOPPING: "shopping",
+  COMMUNICATION: "communication",
+  EDUCATION: "education",
+  PERSONAL: "personal",
+  // Additional common categories that might be identified by the open-ended categorization
+  LOCATION: "location",
+  DEVICE: "device",
+  SEARCH: "search",
+  FOOD: "food",
+  FITNESS: "fitness",
+  READING: "reading",
 };
 
 /**
@@ -221,34 +234,44 @@ async function updatePersonas(userEmail, filePath, fileName) {
   // Track which personas were updated
   const updatedPersonas = [];
 
+  // Try to get the user master profile for additional context
+  let userMasterProfile = null;
+  try {
+    userMasterProfile = await getUserMasterProfile(userEmail);
+    console.log("Retrieved user master profile for enhanced persona building");
+  } catch (error) {
+    console.log("No user master profile found, continuing without it:", error.message);
+  }
+
   // For each category in the categorized data, update the corresponding persona
   for (const categoryType of Object.keys(categorizedData.categories)) {
-    if (Object.values(PERSONA_TYPES).includes(categoryType)) {
-      console.log(`Updating ${categoryType} persona...`);
+    // Support all categories, not just the predefined ones
+    console.log(`Updating ${categoryType} persona...`);
 
-      // Get the category data
-      const categoryData = categorizedData.categories[categoryType];
+    // Get the category data
+    const categoryData = categorizedData.categories[categoryType];
 
-      // Get the existing persona for this category or create a new one
-      let persona = personas[categoryType];
-      if (!persona) {
-        persona = createDefaultPersona(categoryType);
-        personas[categoryType] = persona;
-      }
-
-      // Update the persona with new data using OpenAI
-      const updatedPersona = await updatePersonaWithOpenAI(
-        persona,
-        categoryData,
-        categorizedData.fileName,
-        categorizedData.fileType,
-        categorizedData.summary
-      );
-
-      // Save the updated persona
-      personas[categoryType] = updatedPersona;
-      updatedPersonas.push(categoryType);
+    // Get the existing persona for this category or create a new one
+    let persona = personas[categoryType];
+    if (!persona) {
+      console.log(`Creating new persona for category: ${categoryType}`);
+      persona = createDefaultPersona(categoryType);
+      personas[categoryType] = persona;
     }
+
+    // Update the persona with new data using OpenAI, including user master profile if available
+    const updatedPersona = await updatePersonaWithOpenAI(
+      persona,
+      categoryData,
+      categorizedData.fileName,
+      categorizedData.fileType,
+      categorizedData.summary,
+      userMasterProfile?.userProfile // Pass user profile data if available
+    );
+
+    // Save the updated persona
+    personas[categoryType] = updatedPersona;
+    updatedPersonas.push(categoryType);
   }
 
   // Save all updated personas to S3
@@ -397,6 +420,7 @@ function createDefaultPersona(categoryType) {
  * @param {string} fileName - Source file name
  * @param {string} fileType - Source file type
  * @param {string} fileSummary - Source file summary
+ * @param {Object} userProfile - User master profile data (optional)
  * @returns {Promise<Object>} - Updated persona
  */
 async function updatePersonaWithOpenAI(
@@ -404,7 +428,8 @@ async function updatePersonaWithOpenAI(
   categoryData,
   fileName,
   fileType,
-  fileSummary
+  fileSummary,
+  userProfile
 ) {
   console.log(`Updating ${existingPersona.type} persona with AI...`);
 
@@ -424,6 +449,13 @@ async function updatePersonaWithOpenAI(
   - Relevance to ${existingPersona.type}: ${categoryData.relevance}/10
   - Category Summary: ${categoryData.summary}
   - Data Points: ${JSON.stringify(categoryData.dataPoints)}
+  
+  ${
+    userProfile
+      ? `User Profile Information (from master profile):
+  ${JSON.stringify(userProfile, null, 2)}`
+      : ""
+  }
 
   Instructions:
   1. Update the persona's traits with any new information
@@ -490,6 +522,30 @@ async function updatePersonaWithOpenAI(
       lastUpdated: new Date().toISOString(),
       sources: [...(existingPersona.sources || []), fileName],
     };
+  }
+}
+
+/**
+ * Get the user master profile from S3
+ * @param {string} userEmail - User's email
+ * @returns {Promise<Object>} - The user master profile
+ */
+async function getUserMasterProfile(userEmail) {
+  const masterFileKey = `${userEmail}/stage2/user_master_profile.json`;
+  
+  console.log(`Getting user master profile from S3: ${process.env.S3_BUCKET_NAME}/${masterFileKey}`);
+
+  try {
+    const params = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: masterFileKey,
+    };
+
+    const data = await s3.getObject(params).promise();
+    return JSON.parse(data.Body.toString('utf-8'));
+  } catch (error) {
+    console.error("Error retrieving user master profile from S3:", error);
+    throw new Error(`Failed to retrieve user master profile: ${error.message}`);
   }
 }
 
