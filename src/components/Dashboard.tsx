@@ -646,6 +646,33 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
             Here's an overview of your Digital DNA vault
           </p>
         </div>
+        <div className="dashboard-actions">
+          <button 
+            className="refresh-button" 
+            onClick={() => loadUserData()}
+            disabled={isLoading}
+          >
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="16" 
+              height="16" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              className="refresh-icon"
+              style={{ marginRight: '8px' }}
+            >
+              <path d="M23 4v6h-6"></path>
+              <path d="M1 20v-6h6"></path>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path>
+              <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"></path>
+            </svg>
+            {isLoading ? "Loading..." : "Refresh Data"}
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
