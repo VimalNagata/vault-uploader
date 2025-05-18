@@ -33,7 +33,7 @@ interface UserInfo {
 interface FileCategory {
   name: string;
   icon: string;
-  count: number;
+  count: number | null;  // Allow null for summary mode
   size: string;
   lastUpdated: string;
   fileExamples?: string[];
