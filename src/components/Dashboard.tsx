@@ -136,6 +136,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
   const [fileCategories, setFileCategories] = useState<FileCategory[]>([]);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [totalStorage, setTotalStorage] = useState("0 MB");
+  const [metrics, setMetrics] = useState<any>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -290,6 +291,9 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
         `Retrieved metrics: ${metrics.fileCount} files, ${metrics.totalSizeFormatted} total size`
       );
       console.log(`Data includes categorized: ${!!userData.categorized}, personas: ${!!userData.personas}`);
+
+      // Save metrics for use in the UI
+      setMetrics(metrics);
 
       // Initialize an empty file tree structure (will be populated on demand)
       setFileTree({
@@ -617,7 +621,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                     <div className="summary-stats">
                       <div className="summary-stat">
                         <span className="stat-value">
-                          {rawFiles.length || 0}
+                          {metrics ? metrics.fileCount : (rawFiles.length || 0)}
                         </span>
                         <span className="stat-label">Files Uploaded</span>
                       </div>
