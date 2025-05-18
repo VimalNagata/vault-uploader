@@ -316,9 +316,11 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
         categoryCounts: categorized?.categoryTypes?.length || 
                        (categorized?.files ? Object.keys(categorized.files).length : 0),
         // Persona counts - use direct count from personas object or personaTypes if available
-        personaCounts: personas ? Object.keys(personas).length : 0,
+        personaCounts: personas ? Object.keys(personas).length : 
+                     (userData.personaTypes ? userData.personaTypes.length : 0),
         // Store personaTypes for creating summary cards in summary mode
-        personaTypes: personas ? Object.keys(personas) : []
+        personaTypes: personas ? Object.keys(personas) : 
+                    (userData.personaTypes && Array.isArray(userData.personaTypes) ? userData.personaTypes : [])
       };
       setMetrics(enhancedMetrics);
 
@@ -389,12 +391,12 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
             setPersonas(personaData);
           }
         }
-        // If we only have summary data but know persona types exist
-        else if (metrics && metrics.personaTypes) {
-          console.log(`Creating summary cards for ${metrics.personaTypes.length} persona types`);
+        // If we only have summary data but know persona types exist from the API response object
+        else if (userData.personaTypes && Array.isArray(userData.personaTypes) && userData.personaTypes.length > 0) {
+          console.log(`Creating summary cards for ${userData.personaTypes.length} persona types from API response`);
           
-          // Create basic persona cards from the metrics
-          const summaryPersonas = metrics.personaTypes.map((type: string) => ({
+          // Create basic persona cards from the personaTypes in the API response
+          const summaryPersonas = userData.personaTypes.map((type: string) => ({
             id: type.toLowerCase(),
             name: `${type.charAt(0).toUpperCase() + type.slice(1)} Profile`,
             type: type.charAt(0).toUpperCase() + type.slice(1),

@@ -603,13 +603,14 @@ class S3Service {
         stage3: { fileCount: number; totalSize: number };
       }
     };
-    fileTree: any;
+    fileTree?: any;  // Optional since it may not be included when skipFileTree=true
     files: any[];
     categorized?: {
       files: Record<string, any>;
       categoryTypes: string[];
     };
     personas?: Record<string, any>;
+    personaTypes?: string[];  // Added to help with summary mode
   }> {
     // Get JWT token from AuthService
     const token = await AuthService.getJwtToken();
