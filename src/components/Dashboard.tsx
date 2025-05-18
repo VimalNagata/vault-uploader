@@ -293,11 +293,16 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
       console.log(`Data includes categorized: ${!!userData.categorized}, personas: ${!!userData.personas}`);
 
       // Save metrics for use in the UI
-      // Extract or calculate category counts from the data
+      // Extract or calculate counts for dashboard sections
       const enhancedMetrics = {
         ...metrics,
+        // Category counts - use categoryTypes array length first, then try counting files
         categoryCounts: categorized?.categoryTypes?.length || 
-                       (categorized?.files ? Object.keys(categorized.files).length : 0)
+                       (categorized?.files ? Object.keys(categorized.files).length : 0),
+        // Persona counts - use direct count from personas object or personaTypes if available
+        personaCounts: personas ? Object.keys(personas).length : 0,
+        // Store personaTypes for creating summary cards in summary mode
+        personaTypes: personas ? Object.keys(personas) : []
       };
       setMetrics(enhancedMetrics);
 
@@ -325,24 +330,64 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
       setPersonas([]);
       
       // Update categories if available
-      if (userData.categorized && categorized.files && Object.keys(categorized.files).length > 0) {
+      if (userData.categorized) {
         console.log("Processing categorized data from API response");
-        const categoryData = processCategorizedData(categorized);
-        if (categoryData.length > 0) {
-          console.log(`Setting ${categoryData.length} categories in state`);
-          setFileCategories(categoryData);
+        
+        // Check if we have detailed file data for categories
+        if (categorized.files && Object.keys(categorized.files).length > 0) {
+          const categoryData = processCategorizedData(categorized);
+          if (categoryData.length > 0) {
+            console.log(`Setting ${categoryData.length} categories in state from detailed data`);
+            setFileCategories(categoryData);
+          }
+        } 
+        // If no detailed file data (likely summary mode) but we have categoryTypes
+        else if (categorized.categoryTypes && categorized.categoryTypes.length > 0) {
+          console.log(`Creating summary cards for ${categorized.categoryTypes.length} category types`);
+          
+          // Create basic category cards from the categoryTypes array
+          const summaryCards = categorized.categoryTypes.map((type: string) => ({
+            name: type.charAt(0).toUpperCase() + type.slice(1),
+            icon: type.toLowerCase(),
+            count: 0, // We don't have detailed counts in summary mode
+            size: "N/A", // We don't have size info in summary mode
+            lastUpdated: "Recently",
+            fileExamples: []
+          }));
+          
+          setFileCategories(summaryCards);
         }
       } else {
         console.log("No valid categorized data found in API response");
       }
       
       // Update personas if available
-      if (userData.personas && personas && Object.keys(personas).length > 0) {
+      if (userData.personas) {
         console.log("Processing personas from API response");
-        const personaData = processPersonas(personas);
-        if (personaData.length > 0) {
-          console.log(`Setting ${personaData.length} personas in state`);
-          setPersonas(personaData);
+        
+        // If we have detailed persona data
+        if (personas && Object.keys(personas).length > 0) {
+          const personaData = processPersonas(personas);
+          if (personaData.length > 0) {
+            console.log(`Setting ${personaData.length} personas in state from detailed data`);
+            setPersonas(personaData);
+          }
+        }
+        // If we only have summary data but know persona types exist
+        else if (metrics && metrics.personaTypes) {
+          console.log(`Creating summary cards for ${metrics.personaTypes.length} persona types`);
+          
+          // Create basic persona cards from the metrics
+          const summaryPersonas = metrics.personaTypes.map((type: string) => ({
+            id: type.toLowerCase(),
+            name: `${type.charAt(0).toUpperCase() + type.slice(1)} Profile`,
+            type: type.charAt(0).toUpperCase() + type.slice(1),
+            completeness: 50, // Default placeholder value
+            lastUpdated: "Recently",
+            insights: []
+          }));
+          
+          setPersonas(summaryPersonas);
         }
       } else {
         console.log("No valid persona data found in API response");
@@ -814,7 +859,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
             {/* Stage 3: Insights Section */}
             <div className="dashboard-section">
               <div className="section-header">
-                <h3>Insights ({personas.length})</h3>
+                <h3>Insights ({metrics?.personaCounts || personas.length})</h3>
               </div>
 
               <div className="persona-cards">
