@@ -192,9 +192,35 @@ async function processFile(userEmail, filePath, fileName) {
 
   // Get the content of the specified file
   const fileContent = await getFileContent(sanitizedEmail, filePath);
+  
+  // Try to get the user master file if it exists
+  let userMasterFile = null;
+  try {
+    userMasterFile = await getUserMasterFile(sanitizedEmail);
+    console.log("Retrieved existing user master file");
+  } catch (error) {
+    console.log("No existing user master file found or error retrieving it:", error.message);
+    userMasterFile = { 
+      lastUpdated: new Date().toISOString(),
+      fileCount: 0,
+      userProfile: {
+        demographics: {},
+        socialConnections: [],
+        affiliations: [],
+        interests: [],
+        behaviors: []
+      }
+    };
+  }
 
-  // Process the file content using OpenAI
-  const categoryData = await processFileWithOpenAI(fileName, fileContent);
+  // Process the file content using OpenAI, passing the user master file for context
+  const categoryData = await processFileWithOpenAI(fileName, fileContent, sanitizedEmail, userMasterFile);
+
+  // Update the user master file with new information from the processed file
+  const updatedMasterFile = updateUserMasterFile(userMasterFile, categoryData);
+  
+  // Store the updated master file
+  await storeUserMasterFile(sanitizedEmail, updatedMasterFile);
 
   // Store the categorized data in stage2
   await storeProcessedData(sanitizedEmail, fileName, categoryData);
@@ -272,27 +298,61 @@ async function getFileContent(userPrefix, filePath) {
  * Process file content using OpenAI
  * @param {string} fileName - The name of the file
  * @param {string} content - The content of the file
+ * @param {string} userPrefix - The user's sanitized email
+ * @param {Object} userMasterFile - The user's master file with entity information (if exists)
  * @returns {Promise<Object>} - Categorized data
  */
-async function processFileWithOpenAI(fileName, content) {
+async function processFileWithOpenAI(fileName, content, userPrefix, userMasterFile) {
   console.log(`Processing file: ${fileName}`);
 
   // Prepare content for OpenAI
   // Limit content to a reasonable size (e.g., first 100KB)
   const truncatedContent = content.substring(0, 100000);
 
+  // Create a context section from the user master file if it exists
+  let userContext = "";
+  if (userMasterFile && Object.keys(userMasterFile).length > 0) {
+    userContext = `
+    User Information (from previous files):
+    ${JSON.stringify(userMasterFile, null, 2)}
+    
+    Use this information to supplement your analysis and update it with any new details you find.
+    `;
+    console.log("Using existing user master file for context");
+  } else {
+    console.log("No existing user master file found, will create a new one");
+  }
+
   // Prepare the prompt for OpenAI
   const prompt = `
   Analyze the following data export file and extract useful information.
   File name: ${fileName}
   
-  Extract and categorize information into the following categories:
+  ${userContext}
+  
+  Extract and categorize information into categories. The following base categories must always be considered:
   - financial: financial transactions, banking information, purchases, subscriptions
   - social: social connections, friends, followers, social interactions
   - professional: work history, skills, education, professional connections
   - entertainment: media consumption, content preferences, games, music, videos
   
+  Additionally, you should identify and create ANY OTHER relevant categories based on the content. 
+  Be creative but precise when identifying new categories, such as:
+  - health: medical records, fitness data, health metrics
+  - travel: location history, trips, travel preferences
+  - shopping: purchase history, product preferences
+  - communication: emails, messages, contacts
+  - etc. (identify any other relevant categories based on content)
+  
   For each category, extract relevant data points and provide a short summary.
+  
+  ALSO, extract detailed information about the user, including but not limited to:
+  - Demographics: name, age, gender, location, etc.
+  - Social connections: family members, friends, colleagues
+  - Relationships: marital status, family structure
+  - Institutional affiliations: schools, employers, organizations
+  - Interests and preferences: hobbies, favorite activities
+  - Behavioral patterns: recurring activities, habits
   
   Format your response as a JSON object with the following structure:
   {
@@ -307,14 +367,45 @@ async function processFileWithOpenAI(fileName, content) {
       },
       "social": { ... same structure ... },
       "professional": { ... same structure ... },
-      "entertainment": { ... same structure ... }
+      "entertainment": { ... same structure ... },
+      "NEW_CATEGORY_NAME": { ... same structure ... },
+      ... add any other relevant categories with the same structure
     },
     "entityNames": ["list", "of", "entities", "mentioned"],
     "insights": ["list", "of", "potential", "insights"],
-    "sensitiveInfo": true/false
+    "sensitiveInfo": true/false,
+    "userProfile": {
+      "demographics": {
+        "name": "user's name if found",
+        "age": "user's age if found",
+        "gender": "user's gender if found",
+        "location": "user's location if found",
+        ... any other demographic information
+      },
+      "socialConnections": [
+        {
+          "name": "person's name",
+          "relationship": "relationship to user",
+          "details": "any additional details about this connection"
+        },
+        ... more connections
+      ],
+      "affiliations": [
+        {
+          "organization": "organization name",
+          "type": "school/employer/etc",
+          "role": "user's role in the organization",
+          "timeframe": "period of affiliation"
+        },
+        ... more affiliations
+      ],
+      "interests": ["interest1", "interest2", ...],
+      "behaviors": ["behavior1", "behavior2", ...],
+      ... any other relevant user profile information
+    }
   }
   
-  Only include categories where relevance > 0. Return the result as a JSON object with no additional text.
+  Only include categories where relevance > 0. The userProfile section should update and extend (not replace) any existing information from the user context. Return the result as a JSON object with no additional text.
   
   Here's the file content:
   ${truncatedContent}
@@ -460,4 +551,294 @@ async function storeProcessedData(userPrefix, fileName, processedData) {
     console.error("Error storing processed data:", error);
     throw new Error(`Failed to store processed data: ${error.message}`);
   }
+}
+
+/**
+ * Get the user master file from S3 if it exists
+ * @param {string} userPrefix - The user's sanitized email
+ * @returns {Promise<Object>} - The user master file
+ */
+async function getUserMasterFile(userPrefix) {
+  const masterFileKey = `${userPrefix}/stage2/user_master_profile.json`;
+  
+  console.log(`Retrieving user master file from S3: ${process.env.S3_BUCKET_NAME}/${masterFileKey}`);
+
+  try {
+    const params = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: masterFileKey,
+    };
+
+    const data = await s3.getObject(params).promise();
+    return JSON.parse(data.Body.toString('utf-8'));
+  } catch (error) {
+    // If the file doesn't exist yet, that's ok - we'll create it
+    if (error.code === 'NoSuchKey') {
+      throw new Error('User master file does not exist yet');
+    }
+    console.error("Error retrieving user master file:", error);
+    throw new Error(`Failed to retrieve user master file: ${error.message}`);
+  }
+}
+
+/**
+ * Store the updated user master file in S3
+ * @param {string} userPrefix - The user's sanitized email
+ * @param {Object} masterFile - The user master file
+ */
+async function storeUserMasterFile(userPrefix, masterFile) {
+  const masterFileKey = `${userPrefix}/stage2/user_master_profile.json`;
+  
+  console.log(`Storing user master file to S3: ${process.env.S3_BUCKET_NAME}/${masterFileKey}`);
+
+  try {
+    const params = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: masterFileKey,
+      Body: JSON.stringify(masterFile, null, 2),
+      ContentType: "application/json",
+    };
+
+    await s3.putObject(params).promise();
+    console.log("User master file stored successfully");
+  } catch (error) {
+    console.error("Error storing user master file:", error);
+    throw new Error(`Failed to store user master file: ${error.message}`);
+  }
+}
+
+/**
+ * Update the user master file with new information
+ * @param {Object} existingMasterFile - The existing user master file
+ * @param {Object} newCategoryData - The new categorized data
+ * @returns {Object} - The updated user master file
+ */
+function updateUserMasterFile(existingMasterFile, newCategoryData) {
+  // Clone the existing master file to avoid mutations
+  const updatedMasterFile = JSON.parse(JSON.stringify(existingMasterFile));
+  
+  // Update last processed time
+  updatedMasterFile.lastUpdated = new Date().toISOString();
+  updatedMasterFile.fileCount = (updatedMasterFile.fileCount || 0) + 1;
+  
+  // If we have a new user profile, use it to update the existing profile
+  if (newCategoryData.userProfile) {
+    // Make sure the userProfile object exists in the master file
+    if (!updatedMasterFile.userProfile) {
+      updatedMasterFile.userProfile = {
+        demographics: {},
+        socialConnections: [],
+        affiliations: [],
+        interests: [],
+        behaviors: []
+      };
+    }
+    
+    // Update demographics
+    if (newCategoryData.userProfile.demographics) {
+      updatedMasterFile.userProfile.demographics = {
+        ...updatedMasterFile.userProfile.demographics,
+        ...newCategoryData.userProfile.demographics
+      };
+    }
+    
+    // Update social connections (avoiding duplicates)
+    if (newCategoryData.userProfile.socialConnections && Array.isArray(newCategoryData.userProfile.socialConnections)) {
+      const existingNames = new Set(
+        updatedMasterFile.userProfile.socialConnections.map(conn => conn.name.toLowerCase())
+      );
+      
+      for (const connection of newCategoryData.userProfile.socialConnections) {
+        if (!connection.name) continue;
+        
+        const lowerName = connection.name.toLowerCase();
+        
+        if (!existingNames.has(lowerName)) {
+          // New connection, add it
+          updatedMasterFile.userProfile.socialConnections.push(connection);
+          existingNames.add(lowerName);
+        } else {
+          // Update existing connection
+          const existingIdx = updatedMasterFile.userProfile.socialConnections.findIndex(
+            conn => conn.name.toLowerCase() === lowerName
+          );
+          
+          if (existingIdx >= 0) {
+            updatedMasterFile.userProfile.socialConnections[existingIdx] = {
+              ...updatedMasterFile.userProfile.socialConnections[existingIdx],
+              ...connection
+            };
+          }
+        }
+      }
+    }
+    
+    // Update affiliations (avoiding duplicates)
+    if (newCategoryData.userProfile.affiliations && Array.isArray(newCategoryData.userProfile.affiliations)) {
+      const existingOrgs = new Set(
+        updatedMasterFile.userProfile.affiliations.map(aff => 
+          `${aff.organization || ''}:${aff.type || ''}`
+        )
+      );
+      
+      for (const affiliation of newCategoryData.userProfile.affiliations) {
+        if (!affiliation.organization) continue;
+        
+        const key = `${affiliation.organization || ''}:${affiliation.type || ''}`;
+        
+        if (!existingOrgs.has(key)) {
+          // New affiliation, add it
+          updatedMasterFile.userProfile.affiliations.push(affiliation);
+          existingOrgs.add(key);
+        } else {
+          // Update existing affiliation
+          const existingIdx = updatedMasterFile.userProfile.affiliations.findIndex(
+            aff => `${aff.organization || ''}:${aff.type || ''}` === key
+          );
+          
+          if (existingIdx >= 0) {
+            updatedMasterFile.userProfile.affiliations[existingIdx] = {
+              ...updatedMasterFile.userProfile.affiliations[existingIdx],
+              ...affiliation
+            };
+          }
+        }
+      }
+    }
+    
+    // Update interests (avoiding duplicates)
+    if (newCategoryData.userProfile.interests && Array.isArray(newCategoryData.userProfile.interests)) {
+      const existingInterests = new Set(
+        updatedMasterFile.userProfile.interests.map(interest => interest.toLowerCase())
+      );
+      
+      for (const interest of newCategoryData.userProfile.interests) {
+        if (!interest) continue;
+        
+        const lowerInterest = interest.toLowerCase();
+        if (!existingInterests.has(lowerInterest)) {
+          updatedMasterFile.userProfile.interests.push(interest);
+          existingInterests.add(lowerInterest);
+        }
+      }
+    }
+    
+    // Update behaviors (avoiding duplicates)
+    if (newCategoryData.userProfile.behaviors && Array.isArray(newCategoryData.userProfile.behaviors)) {
+      const existingBehaviors = new Set(
+        updatedMasterFile.userProfile.behaviors.map(behavior => behavior.toLowerCase())
+      );
+      
+      for (const behavior of newCategoryData.userProfile.behaviors) {
+        if (!behavior) continue;
+        
+        const lowerBehavior = behavior.toLowerCase();
+        if (!existingBehaviors.has(lowerBehavior)) {
+          updatedMasterFile.userProfile.behaviors.push(behavior);
+          existingBehaviors.add(lowerBehavior);
+        }
+      }
+    }
+    
+    // Add any other profiles fields that might exist
+    for (const [key, value] of Object.entries(newCategoryData.userProfile)) {
+      if (!['demographics', 'socialConnections', 'affiliations', 'interests', 'behaviors'].includes(key)) {
+        updatedMasterFile.userProfile[key] = updatedMasterFile.userProfile[key] || [];
+        
+        if (Array.isArray(value)) {
+          // For array properties, add new items
+          const existingItems = new Set(
+            updatedMasterFile.userProfile[key].map(item => 
+              typeof item === 'string' ? item.toLowerCase() : JSON.stringify(item)
+            )
+          );
+          
+          for (const item of value) {
+            const itemKey = typeof item === 'string' ? item.toLowerCase() : JSON.stringify(item);
+            if (!existingItems.has(itemKey)) {
+              updatedMasterFile.userProfile[key].push(item);
+            }
+          }
+        } else if (typeof value === 'object' && value !== null) {
+          // For object properties, merge them
+          updatedMasterFile.userProfile[key] = {
+            ...updatedMasterFile.userProfile[key],
+            ...value
+          };
+        }
+      }
+    }
+  }
+  
+  // Update category information
+  if (!updatedMasterFile.categories) {
+    updatedMasterFile.categories = {};
+  }
+  
+  if (newCategoryData.categories) {
+    for (const [category, data] of Object.entries(newCategoryData.categories)) {
+      if (!updatedMasterFile.categories[category]) {
+        updatedMasterFile.categories[category] = {
+          relevance: data.relevance || 0,
+          count: 1,
+          dataPoints: [...(data.dataPoints || [])]
+        };
+      } else {
+        // Update existing category
+        updatedMasterFile.categories[category].relevance = Math.max(
+          updatedMasterFile.categories[category].relevance || 0,
+          data.relevance || 0
+        );
+        updatedMasterFile.categories[category].count = (updatedMasterFile.categories[category].count || 0) + 1;
+        
+        // Add unique data points
+        const existingPoints = new Set(updatedMasterFile.categories[category].dataPoints || []);
+        for (const point of (data.dataPoints || [])) {
+          if (!existingPoints.has(point)) {
+            updatedMasterFile.categories[category].dataPoints = 
+              updatedMasterFile.categories[category].dataPoints || [];
+            updatedMasterFile.categories[category].dataPoints.push(point);
+            existingPoints.add(point);
+          }
+        }
+      }
+    }
+  }
+  
+  // Add any insights to the master file
+  if (!updatedMasterFile.insights) {
+    updatedMasterFile.insights = [];
+  }
+  
+  if (newCategoryData.insights && Array.isArray(newCategoryData.insights)) {
+    const existingInsights = new Set(
+      updatedMasterFile.insights.map(insight => insight.toLowerCase())
+    );
+    
+    for (const insight of newCategoryData.insights) {
+      if (!insight) continue;
+      
+      const lowerInsight = insight.toLowerCase();
+      if (!existingInsights.has(lowerInsight)) {
+        updatedMasterFile.insights.push(insight);
+        existingInsights.add(lowerInsight);
+      }
+    }
+  }
+  
+  // Add source files that contributed to this profile
+  if (!updatedMasterFile.sourceFiles) {
+    updatedMasterFile.sourceFiles = [];
+  }
+  
+  if (newCategoryData.fileName) {
+    updatedMasterFile.sourceFiles.push({
+      fileName: newCategoryData.fileName,
+      fileType: newCategoryData.fileType || 'unknown',
+      processedAt: new Date().toISOString(),
+      categories: Object.keys(newCategoryData.categories || {})
+    });
+  }
+  
+  return updatedMasterFile;
 }
