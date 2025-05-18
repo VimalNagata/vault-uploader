@@ -1,6 +1,25 @@
 import AWS from "aws-sdk";
 import AuthService from "./AuthService";
 
+/**
+ * Interface for file categorization response
+ */
+export interface CategorizedData {
+  fileName: string;
+  fileType: string;
+  summary: string;
+  categories: {
+    [key: string]: {
+      relevance: number;
+      summary: string;
+      dataPoints: string[];
+    }
+  };
+  entityNames?: string[];
+  insights?: string[];
+  sensitiveInfo: boolean;
+}
+
 class S3Service {
   private s3: AWS.S3 | null = null;
   private bucketName: string | null = null;
@@ -466,13 +485,260 @@ class S3Service {
     const response = await this.s3.listObjectsV2(params).promise();
     return response.Contents || [];
   }
+  
+  /**
+   * Get user data metrics and file tree from the Lambda function
+   * @param username User's sanitized email/prefix
+   * @param stage The data stage to get metrics for
+   * @returns Promise with metrics and file tree
+   */
+  /**
+   * Categorize a specific file using the Lambda function
+   * @param username User's email or identifier
+   * @param filePath Path to the file in S3 (full path including user prefix and stage)
+   * @param fileName Name of the file to categorize
+   * @returns Promise with the categorization result
+   */
+  async categorizeFile(username: string, filePath: string, fileName: string): Promise<any> {
+    // Get JWT token for authorization
+    const token = await AuthService.getJwtToken();
+    
+    if (!token) {
+      throw new Error("Authentication required. Please sign in to categorize your data.");
+    }
+    
+    // API endpoint for categorization
+    const apiUrl = process.env.REACT_APP_CATEGORIZE_API_URL || 
+      'https://8dk906qbg3.execute-api.us-east-1.amazonaws.com/prod/categorize';
+    
+    console.log(`Requesting categorization for file: ${fileName} at path: ${filePath}`);
+    
+    // Make API call to the Lambda function
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        filePath,
+        fileName
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error triggering categorization:', errorText);
+      throw new Error(`Failed to categorize file: ${response.status} ${response.statusText}`);
+    }
+    
+    return await response.json();
+  }
+
+  /**
+   * Get user data metrics with optimized parameters
+   * @param username User's email/identifier
+   * @param stage The data stage to request 
+   * @param includeAllStages Whether to include data from all stages
+   * @param summaryOnly Whether to return only summary data (no file details)
+   * @param stageFilter Optional filter to only return files from a specific stage
+   * @param skipFileTree Whether to skip the file tree structure to reduce payload size
+   * @returns Promise with metrics and file data
+   */
+  /**
+   * Get files for a specific stage
+   * @param username User's email/identifier
+   * @param stage The stage to get files for
+   * @returns Promise with the list of files for the specified stage
+   */
+  async getFilesByStage(
+    username: string,
+    stage: DataStage
+  ): Promise<any[]> {
+    // Call the metrics API with specific settings:
+    // - Only get data for the specific stage
+    // - Don't include all stages
+    // - Don't use summary mode (we need the files)
+    // - Apply stage filter to match our stage
+    // - Skip the file tree (don't need it)
+    const result = await this.getUserDataMetrics(
+      username,
+      stage,
+      false,  // Don't include all stages
+      false,  // Don't use summary mode
+      stage,  // Filter to this stage
+      true    // Skip file tree
+    );
+    
+    // Return the files array or empty array if not available
+    return result.files || [];
+  }
+
+  /**
+   * Get user data metrics with optimized parameters
+   * @param username User's email/identifier
+   * @param stage The data stage to request 
+   * @param includeAllStages Whether to include data from all stages
+   * @param summaryOnly Whether to return only summary data (no file details)
+   * @param stageFilter Optional filter to only return files from a specific stage
+   * @param skipFileTree Whether to skip the file tree structure to reduce payload size
+   * @returns Promise with metrics and file data
+   */
+  async getUserDataMetrics(
+    username: string, 
+    stage: DataStage = DataStage.YOUR_DATA,
+    includeAllStages: boolean = false,
+    summaryOnly: boolean = false,
+    stageFilter?: DataStage,
+    skipFileTree: boolean = false
+  ): Promise<{
+    metrics: {
+      fileCount: number;
+      totalSize: number;
+      totalSizeFormatted: string;
+      lastUpdated: string | null;
+      stageMetrics?: {
+        stage1: { fileCount: number; totalSize: number };
+        stage2: { fileCount: number; totalSize: number };
+        stage3: { fileCount: number; totalSize: number };
+      }
+    };
+    fileTree: any;
+    files: any[];
+    categorized?: {
+      files: Record<string, any>;
+      categoryTypes: string[];
+    };
+    personas?: Record<string, any>;
+  }> {
+    // Get JWT token from AuthService
+    const token = await AuthService.getJwtToken();
+    
+    if (!token) {
+      console.error("No JWT token available - user is not authenticated");
+      throw new Error("Authentication required. Please sign in to view your data.");
+    }
+    
+    // Check token format - expecting a Google ID token or access token
+    if (!token.match(/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_.+/=]*$/) && 
+        !token.match(/^ya29\.[a-zA-Z0-9_-]+$/)) {
+      console.error("JWT token format appears invalid (not a JWT or OAuth token)");  
+    }
+    
+    // Get the API endpoint from environment variables or use a default
+    // This is the URL of the API Gateway endpoint for the get-user-data-metrics Lambda
+    // We need the full URL with /user-data-metrics path to match what was created in API Gateway
+    const apiUrl = process.env.REACT_APP_METRICS_API_URL || 
+      'https://8dk906qbg3.execute-api.us-east-1.amazonaws.com/prod/user-data-metrics';
+    
+    // Add query parameters to the URL
+    // TEMPORARY: Add email parameter for now until authorization is fixed
+    const userInfoStr = localStorage.getItem("dna_user_info");
+    let email = "";
+    
+    if (userInfoStr) {
+      try {
+        const userInfo = JSON.parse(userInfoStr);
+        email = userInfo.email || "";
+        console.log("Using email from localStorage:", email);
+      } catch (e) {
+        console.error("Failed to parse user info:", e);
+      }
+    }
+    
+    // Build URL with parameters
+    let url = `${apiUrl}?stage=${stage}${email ? `&email=${encodeURIComponent(email)}` : ''}${includeAllStages ? '&includeAllStages=true' : ''}`;
+    
+    // Add optimization parameters
+    if (summaryOnly) {
+      url += '&summaryOnly=true';
+    }
+    
+    if (stageFilter) {
+      url += `&stageFilter=${stageFilter}`;
+    }
+    
+    if (skipFileTree) {
+      url += '&skipFileTree=true';
+    }
+    
+    console.log("Token being used for authorization:", token.substring(0, 20) + '...');
+    
+    console.log(`Fetching user data metrics from: ${url}`);
+    
+    // Make API call to the Lambda function
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error fetching metrics:', errorText);
+      console.error('HTTP Status:', response.status, response.statusText);
+      console.error('Response headers:', Object.fromEntries([...response.headers.entries()]));
+      
+      // Try to parse the error if it's JSON
+      try {
+        const errorObj = JSON.parse(errorText);
+        console.error('Parsed error details:', errorObj);
+        
+        // If the error mentions authentication/authorization, show more detailed message
+        if (errorObj.message && errorObj.message.includes('authenticated')) {
+          throw new Error(`Authentication error: ${errorObj.message}. Please log out and log in again.`);
+        }
+      } catch (parseError) {
+        // Continue with generic error if JSON parsing fails
+      }
+      
+      throw new Error(`Failed to fetch user data metrics: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    // Check if the response has the expected format
+    if (!data.metrics) {
+      console.error('Invalid response format:', data);
+      throw new Error('Invalid response format from metrics endpoint');
+    }
+    
+    // If we skipped the file tree, it won't be in the response
+    if (!skipFileTree && !data.fileTree) {
+      console.error('Missing file tree in response when requested:', data);
+      throw new Error('Invalid response format from metrics endpoint');
+    }
+    
+    // For development/testing, log the response
+    console.log('Received metrics data:', {
+      fileCount: data.metrics.fileCount,
+      totalSize: data.metrics.totalSizeFormatted,
+      lastUpdated: data.metrics.lastUpdated,
+      treeDepth: data.fileTree.children?.length || 0
+    });
+    
+    return data;
+  }
 }
 
 // Folder structure for organizing user data
 export enum DataStage {
-  RAW_DATA = "stage1",
-  CATEGORIZED = "stage2",
-  PERSONAS = "stage99"
+  YOUR_DATA = "stage1",       // Raw uploaded data
+  PREPROCESSED = "preprocessed", // Preprocessed data (PDF conversion, chunking)
+  ANALYZED_DATA = "stage2",   // Analyzed/categorized data
+  INSIGHTS = "stage3"         // Insights and personas
+}
+
+/**
+ * Category types for data classification
+ */
+export enum DataCategory {
+  FINANCIAL = "financial",
+  SOCIAL = "social",
+  PROFESSIONAL = "professional",
+  ENTERTAINMENT = "entertainment"
 }
 
 /**
