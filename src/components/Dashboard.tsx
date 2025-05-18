@@ -34,7 +34,7 @@ interface FileCategory {
   name: string;
   icon: string;
   count: number | null;  // Allow null for summary mode
-  size: string;
+  size: string | null;   // Allow null for summary mode
   lastUpdated: string;
   fileExamples?: string[];
 }
@@ -368,7 +368,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
             name: type.charAt(0).toUpperCase() + type.slice(1),
             icon: type.toLowerCase(),
             count: null, // No count in summary mode - will hide the display
-            size: "N/A", // We don't have size info in summary mode
+            size: null, // No size in summary mode - will hide the display
             lastUpdated: "Recently",
             fileExamples: []
           }));
@@ -851,15 +851,17 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                     <CategoryIcon type={category.icon} />
                     <div className="category-info">
                       <h4>{category.name}</h4>
-                      <div className="category-meta">
-                        {category.count !== null ? (
-                          <>
-                            <span>{category.count} files</span>
-                            <span className="dot-separator">•</span>
-                          </>
-                        ) : null}
-                        <span>{category.size}</span>
-                      </div>
+                      {(category.count !== null || category.size !== null) && (
+                        <div className="category-meta">
+                          {category.count !== null && (
+                            <>
+                              <span>{category.count} files</span>
+                              {category.size !== null && <span className="dot-separator">•</span>}
+                            </>
+                          )}
+                          {category.size !== null && <span>{category.size}</span>}
+                        </div>
+                      )}
                       <div className="category-updated">
                         Updated {category.lastUpdated}
                       </div>
