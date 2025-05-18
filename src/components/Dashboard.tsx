@@ -367,7 +367,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
           const summaryCards = categorized.categoryTypes.map((type: string) => ({
             name: type.charAt(0).toUpperCase() + type.slice(1),
             icon: type.toLowerCase(),
-            count: 0, // We don't have detailed counts in summary mode
+            count: null, // No count in summary mode - will hide the display
             size: "N/A", // We don't have size info in summary mode
             lastUpdated: "Recently",
             fileExamples: []
@@ -852,8 +852,12 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                     <div className="category-info">
                       <h4>{category.name}</h4>
                       <div className="category-meta">
-                        <span>{category.count} files</span>
-                        <span className="dot-separator">•</span>
+                        {category.count !== null ? (
+                          <>
+                            <span>{category.count} files</span>
+                            <span className="dot-separator">•</span>
+                          </>
+                        ) : null}
                         <span>{category.size}</span>
                       </div>
                       <div className="category-updated">
