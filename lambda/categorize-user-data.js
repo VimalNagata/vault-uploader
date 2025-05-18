@@ -76,11 +76,11 @@ async function handleS3Event(event) {
   console.log(`Processing S3 event: Bucket=${bucket}, Key=${key}`);
   
   // Extract userEmail and filePath from the S3 key
-  // Format should be: <userEmail>/stage1/<filePath>
+  // Format should be: <userEmail>/stage1/<filePath> or <userEmail>/preprocessed/<filePath>
   const keyParts = key.split('/');
   
-  if (keyParts.length < 3 || keyParts[1] !== 'stage1') {
-    console.error(`Invalid S3 key format: ${key}. Expected format: <userEmail>/stage1/<filePath>`);
+  if (keyParts.length < 3 || (keyParts[1] !== 'stage1' && keyParts[1] !== 'preprocessed')) {
+    console.error(`Invalid S3 key format: ${key}. Expected format: <userEmail>/stage1/<filePath> or <userEmail>/preprocessed/<filePath>`);
     throw new Error("Invalid S3 key format");
   }
   
@@ -223,22 +223,31 @@ async function getFileContent(userPrefix, filePath) {
   console.log(`Original filePath: "${filePath}"`);
   console.log(`User prefix: "${userPrefix}"`);
   
-  // If filePath already has the full path including userPrefix and stage1
-  if (filePath.includes(`${userPrefix}/stage1/`)) {
+  // Check if filePath is a complete path
+  if (filePath.includes(`${userPrefix}/stage1/`) || filePath.includes(`${userPrefix}/preprocessed/`)) {
     key = filePath;
     console.log(`Using complete path: ${key}`);
   } 
-  // If filePath is just the file name or a subpath within stage1
+  // If filePath is just the file name or a subpath
   else {
-    key = `${userPrefix}/stage1/${filePath.replace(/^\/+/, "")}`;
+    // Determine which stage to use based on the filePath
+    const stage = filePath.includes('preprocessed/') ? 'preprocessed' : 'stage1';
+    key = `${userPrefix}/${stage}/${filePath.replace(/^\/+/, "")}`;
     console.log(`Constructed path: ${key}`);
   }
   
-  // Remove any duplicate stage1 paths that might occur
-  const duplicatePath = `${userPrefix}/stage1/${userPrefix}/stage1/`;
-  if (key.includes(duplicatePath)) {
-    key = key.replace(duplicatePath, `${userPrefix}/stage1/`);
-    console.log(`Removed duplicate path, new key: ${key}`);
+  // Remove any duplicate paths that might occur
+  const duplicateStage1Path = `${userPrefix}/stage1/${userPrefix}/stage1/`;
+  const duplicatePreprocessedPath = `${userPrefix}/preprocessed/${userPrefix}/preprocessed/`;
+  
+  if (key.includes(duplicateStage1Path)) {
+    key = key.replace(duplicateStage1Path, `${userPrefix}/stage1/`);
+    console.log(`Removed duplicate stage1 path, new key: ${key}`);
+  }
+  
+  if (key.includes(duplicatePreprocessedPath)) {
+    key = key.replace(duplicatePreprocessedPath, `${userPrefix}/preprocessed/`);
+    console.log(`Removed duplicate preprocessed path, new key: ${key}`);
   }
 
   console.log(`Retrieving file from S3: ${process.env.S3_BUCKET_NAME}/${key}`);

@@ -13,6 +13,7 @@
 
 // Include dependencies
 const AWS = require("aws-sdk");
+const path = require("path");
 
 // Initialize AWS clients
 const lambda = new AWS.Lambda();
@@ -89,13 +90,56 @@ async function processS3Event(record) {
   
   // Route to appropriate processor based on stage
   if (stage === 'stage1') {
-    // Raw data files - route to categorizer
+    // Raw data files - route to preprocessor
+    await invokePreprocessor(bucket, key, userEmail);
+  } else if (stage === 'preprocessed') {
+    // Preprocessed files - route to categorizer
     await invokeStage1Processor(bucket, key, userEmail);
   } else if (stage === 'stage2') {
     // Categorized files - route to persona builder
     await invokeStage2Processor(bucket, key, userEmail);
   } else {
     console.log(`No processor configured for stage: ${stage}`);
+  }
+}
+
+/**
+ * Invoke the preprocessor Lambda
+ * @param {string} bucket - S3 bucket name
+ * @param {string} key - S3 object key
+ * @param {string} userEmail - User's email
+ */
+async function invokePreprocessor(bucket, key, userEmail) {
+  const fileName = key.split('/').pop();
+  
+  // Skip processing if the file is too large (50MB)
+  const fileInfo = await getFileInfo(bucket, key);
+  if (fileInfo && fileInfo.ContentLength > 52428800) { // 50MB
+    console.log(`File too large for auto-processing (${fileInfo.ContentLength} bytes): ${key}`);
+    return;
+  }
+  
+  console.log(`Invoking preprocessor for ${fileName}`);
+  
+  const params = {
+    FunctionName: 'data-preprocessor',
+    InvocationType: 'Event', // Asynchronous invocation
+    Payload: JSON.stringify({
+      Records: [{
+        s3: {
+          bucket: { name: bucket },
+          object: { key: key }
+        }
+      }]
+    })
+  };
+  
+  try {
+    const result = await lambda.invoke(params).promise();
+    console.log(`Successfully initiated preprocessing for ${key}`, result);
+  } catch (error) {
+    console.error(`Failed to invoke preprocessor for ${key}:`, error);
+    throw error;
   }
 }
 

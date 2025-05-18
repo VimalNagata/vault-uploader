@@ -50,6 +50,32 @@ class AuthService {
     }
     return this.googleToken;
   }
+  
+  /**
+   * Get JWT token for API calls
+   * Currently using the Google token, but this could be different in the future
+   */
+  async getJwtToken(): Promise<string | null> {
+    const token = this.getGoogleToken();
+    
+    if (!token) {
+      console.error("No Google token available - user needs to authenticate");
+      return null;
+    }
+    
+    // Validate basic format of token
+    // Google ID tokens are JWTs (xxxx.yyyy.zzzz)
+    // Google access tokens usually start with "ya29."
+    const isJwt = token.match(/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_.+/=]*$/);
+    const isAccessToken = token.match(/^ya29\.[a-zA-Z0-9_-]+$/);
+    
+    if (!isJwt && !isAccessToken) {
+      console.warn("Token doesn't match expected Google token format:", 
+        token.substring(0, 10) + "...");
+    }
+    
+    return token;
+  }
 
   /**
    * Clear authentication data

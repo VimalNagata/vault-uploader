@@ -143,8 +143,8 @@ const EmailUploader: React.FC<EmailUploaderProps> = ({ username }) => {
       const emailBlob = new Blob([emailsJson], { type: 'application/json' });
       const emailFile = new File([emailBlob], `emails-${new Date().toISOString()}.json`, { type: 'application/json' });
       
-      // Get the stage path for raw data
-      const stagePath = getUserStagePath(username, DataStage.RAW_DATA, 'emails');
+      // Get the stage path for your data
+      const stagePath = getUserStagePath(username, DataStage.YOUR_DATA, 'emails');
       
       // Upload to S3 in the stage1 folder
       await S3Service.uploadFile(

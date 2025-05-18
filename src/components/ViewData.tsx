@@ -18,7 +18,7 @@ const ViewData: React.FC<ViewDataProps> = ({ username }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedStage, setSelectedStage] = useState<DataStage>(DataStage.RAW_DATA);
+  const [selectedStage, setSelectedStage] = useState<DataStage>(DataStage.YOUR_DATA);
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   useEffect(() => {
@@ -30,12 +30,11 @@ const ViewData: React.FC<ViewDataProps> = ({ username }) => {
       setIsLoading(true);
       setError(null);
       
-      // Get the path for the selected stage
-      const stagePath = getUserStagePath(username, selectedStage);
-      console.log(`Fetching files from stage path: ${stagePath}`);
+      // Get files only for the selected stage using optimized method
+      console.log(`Fetching files for stage: ${selectedStage}`);
       
-      // List files from the selected stage
-      const files = await S3Service.listFiles(stagePath);
+      // Use the optimized getFilesByStage method that only returns files for a specific stage
+      const files = await S3Service.getFilesByStage(username, selectedStage);
       setUserFiles(files);
       
       console.log('Files loaded:', files.length);
@@ -120,9 +119,9 @@ const ViewData: React.FC<ViewDataProps> = ({ username }) => {
             value={selectedStage}
             onChange={(e) => setSelectedStage(e.target.value as DataStage)}
           >
-            <option value={DataStage.RAW_DATA}>Raw Data (Stage 1)</option>
-            <option value={DataStage.CATEGORIZED}>Categorized (Stage 2)</option>
-            <option value={DataStage.PERSONAS}>Personas (Stage 99)</option>
+            <option value={DataStage.YOUR_DATA}>Your Data (Stage 1)</option>
+            <option value={DataStage.ANALYZED_DATA}>Analyzed Data (Stage 2)</option>
+            <option value={DataStage.INSIGHTS}>Insights (Stage 3)</option>
           </select>
         </div>
         

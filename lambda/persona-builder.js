@@ -1,12 +1,12 @@
 /**
  * Persona Builder for Digital DNA
- * 
+ *
  * This Lambda function builds and updates user personas by:
  * 1. Reading categorized data from stage2
  * 2. Reading existing personas from stage3 (or creating new ones)
  * 3. Updating personas with new insights using OpenAI
  * 4. Saving updated personas to stage3
- * 
+ *
  * Environment Variables:
  * - S3_BUCKET_NAME: The name of the S3 bucket for user data
  * - OPENAI_API_KEY: OpenAI API key for processing the data
@@ -22,7 +22,8 @@ const s3 = new AWS.S3();
 // CORS headers for all responses
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*", // For production, change to your domain
-  "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token",
+  "Access-Control-Allow-Headers":
+    "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token",
   "Access-Control-Allow-Methods": "POST,OPTIONS",
   "Access-Control-Allow-Credentials": "true",
 };
@@ -32,7 +33,7 @@ const PERSONA_TYPES = {
   FINANCIAL: "financial",
   SOCIAL: "social",
   PROFESSIONAL: "professional",
-  ENTERTAINMENT: "entertainment"
+  ENTERTAINMENT: "entertainment",
 };
 
 /**
@@ -45,8 +46,8 @@ exports.handler = async (event) => {
     // Check if this is an S3 event
     if (event.Records && event.Records[0] && event.Records[0].s3) {
       return await handleS3Event(event);
-    } 
-    
+    }
+
     // Otherwise, handle it as an API Gateway event
     return await handleApiGatewayEvent(event);
   } catch (error) {
@@ -78,24 +79,28 @@ async function handleS3Event(event) {
   const record = event.Records[0];
   const bucket = record.s3.bucket.name;
   // Decode URL-encoded keys and replace '+' with spaces
-  const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
-  
+  const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, " "));
+
   console.log(`Processing S3 event: Bucket=${bucket}, Key=${key}`);
-  
+
   // Extract userEmail and filePath from the S3 key
   // Format should be: <userEmail>/stage2/<fileName>
-  const keyParts = key.split('/');
-  
-  if (keyParts.length < 3 || keyParts[1] !== 'stage2') {
-    console.error(`Invalid S3 key format: ${key}. Expected format: <userEmail>/stage2/<fileName>`);
+  const keyParts = key.split("/");
+
+  if (keyParts.length < 3 || keyParts[1] !== "stage2") {
+    console.error(
+      `Invalid S3 key format: ${key}. Expected format: <userEmail>/stage2/<fileName>`
+    );
     throw new Error("Invalid S3 key format");
   }
-  
+
   const userEmail = keyParts[0];
   const fileName = keyParts[keyParts.length - 1];
-  
-  console.log(`Processing categorized data for user ${userEmail}, file: ${fileName}`);
-  
+
+  console.log(
+    `Processing categorized data for user ${userEmail}, file: ${fileName}`
+  );
+
   // Process the file
   return await updatePersonas(userEmail, key, fileName);
 }
@@ -132,7 +137,8 @@ async function handleApiGatewayEvent(event) {
       statusCode: 401,
       headers: corsHeaders,
       body: JSON.stringify({
-        message: "User not authenticated. No email found in authorizer context.",
+        message:
+          "User not authenticated. No email found in authorizer context.",
         context: event.requestContext?.authorizer || "No authorizer context",
       }),
     };
@@ -149,14 +155,15 @@ async function handleApiGatewayEvent(event) {
       statusCode: 400,
       headers: corsHeaders,
       body: JSON.stringify({
-        message: "Missing required parameters: filePath and fileName must be provided",
+        message:
+          "Missing required parameters: filePath and fileName must be provided",
       }),
     };
   }
 
   // Process the file
   const result = await updatePersonas(userEmail, filePath, fileName);
-  
+
   // Format response for API Gateway
   return {
     statusCode: 200,
@@ -194,37 +201,41 @@ async function updatePersonas(userEmail, filePath, fileName) {
   // Get the categorized data from stage2
   const categorizedData = await getCategorizedData(userEmail, filePath);
   console.log(`Retrieved categorized data for ${fileName}`);
-  
+
   // If no categories found or invalid format, exit early
-  if (!categorizedData || !categorizedData.categories || Object.keys(categorizedData.categories).length === 0) {
+  if (
+    !categorizedData ||
+    !categorizedData.categories ||
+    Object.keys(categorizedData.categories).length === 0
+  ) {
     console.error(`No valid categories found in ${fileName}`);
-    return { 
+    return {
       updatedPersonas: [],
-      message: "No valid categories found in file" 
+      message: "No valid categories found in file",
     };
   }
-  
+
   // Get existing personas from stage3 or create new ones if they don't exist
   const personas = await getExistingPersonas(userEmail);
-  
+
   // Track which personas were updated
   const updatedPersonas = [];
-  
+
   // For each category in the categorized data, update the corresponding persona
   for (const categoryType of Object.keys(categorizedData.categories)) {
     if (Object.values(PERSONA_TYPES).includes(categoryType)) {
       console.log(`Updating ${categoryType} persona...`);
-      
+
       // Get the category data
       const categoryData = categorizedData.categories[categoryType];
-      
+
       // Get the existing persona for this category or create a new one
       let persona = personas[categoryType];
       if (!persona) {
         persona = createDefaultPersona(categoryType);
         personas[categoryType] = persona;
       }
-      
+
       // Update the persona with new data using OpenAI
       const updatedPersona = await updatePersonaWithOpenAI(
         persona,
@@ -233,19 +244,19 @@ async function updatePersonas(userEmail, filePath, fileName) {
         categorizedData.fileType,
         categorizedData.summary
       );
-      
+
       // Save the updated persona
       personas[categoryType] = updatedPersona;
       updatedPersonas.push(categoryType);
     }
   }
-  
+
   // Save all updated personas to S3
   await savePersonas(userEmail, personas);
-  
+
   return {
     updatedPersonas,
-    message: `Successfully updated ${updatedPersonas.length} personas`
+    message: `Successfully updated ${updatedPersonas.length} personas`,
   };
 }
 
@@ -257,16 +268,18 @@ async function updatePersonas(userEmail, filePath, fileName) {
  */
 async function getCategorizedData(userEmail, filePath) {
   let key = filePath;
-  
+
   // If filePath doesn't include stage2, add it
   if (!filePath.includes(`${userEmail}/stage2/`)) {
     // Get just the filename from the path
-    const fileName = filePath.split('/').pop();
+    const fileName = filePath.split("/").pop();
     key = `${userEmail}/stage2/${fileName}`;
   }
-  
-  console.log(`Getting categorized data from S3: ${process.env.S3_BUCKET_NAME}/${key}`);
-  
+
+  console.log(
+    `Getting categorized data from S3: ${process.env.S3_BUCKET_NAME}/${key}`
+  );
+
   try {
     const params = {
       Bucket: process.env.S3_BUCKET_NAME,
@@ -274,9 +287,9 @@ async function getCategorizedData(userEmail, filePath) {
     };
 
     const data = await s3.getObject(params).promise();
-    
+
     // Parse the JSON content
-    return JSON.parse(data.Body.toString('utf-8'));
+    return JSON.parse(data.Body.toString("utf-8"));
   } catch (error) {
     console.error("Error retrieving categorized data from S3:", error);
     throw new Error(`Failed to retrieve categorized data: ${error.message}`);
@@ -290,26 +303,28 @@ async function getCategorizedData(userEmail, filePath) {
  */
 async function getExistingPersonas(userEmail) {
   const personasKey = `${userEmail}/stage3/personas.json`;
-  
+
   try {
-    console.log(`Checking for existing personas at ${process.env.S3_BUCKET_NAME}/${personasKey}`);
-    
+    console.log(
+      `Checking for existing personas at ${process.env.S3_BUCKET_NAME}/${personasKey}`
+    );
+
     const params = {
       Bucket: process.env.S3_BUCKET_NAME,
       Key: personasKey,
     };
 
     const data = await s3.getObject(params).promise();
-    
+
     // Parse the JSON content
-    return JSON.parse(data.Body.toString('utf-8'));
+    return JSON.parse(data.Body.toString("utf-8"));
   } catch (error) {
     // If file doesn't exist, return empty object
-    if (error.code === 'NoSuchKey') {
+    if (error.code === "NoSuchKey") {
       console.log("No existing personas found, creating new ones");
       return {};
     }
-    
+
     console.error("Error retrieving existing personas from S3:", error);
     throw new Error(`Failed to retrieve existing personas: ${error.message}`);
   }
@@ -322,7 +337,7 @@ async function getExistingPersonas(userEmail) {
  */
 function createDefaultPersona(categoryType) {
   const timestamp = new Date().toISOString();
-  
+
   let persona = {
     type: categoryType,
     lastUpdated: timestamp,
@@ -330,9 +345,9 @@ function createDefaultPersona(categoryType) {
     dataPoints: [],
     summary: `Initial ${categoryType} persona`,
     insights: [],
-    sources: []
+    sources: [],
   };
-  
+
   // Add category-specific defaults
   switch (categoryType) {
     case PERSONA_TYPES.FINANCIAL:
@@ -340,7 +355,7 @@ function createDefaultPersona(categoryType) {
       persona.traits = {
         spendingHabits: "Unknown",
         financialServices: [],
-        subscriptions: []
+        subscriptions: [],
       };
       break;
     case PERSONA_TYPES.SOCIAL:
@@ -348,7 +363,7 @@ function createDefaultPersona(categoryType) {
       persona.traits = {
         connections: 0,
         platforms: [],
-        engagement: "Unknown"
+        engagement: "Unknown",
       };
       break;
     case PERSONA_TYPES.PROFESSIONAL:
@@ -356,7 +371,7 @@ function createDefaultPersona(categoryType) {
       persona.traits = {
         skills: [],
         experience: [],
-        education: []
+        education: [],
       };
       break;
     case PERSONA_TYPES.ENTERTAINMENT:
@@ -364,14 +379,14 @@ function createDefaultPersona(categoryType) {
       persona.traits = {
         preferences: [],
         platforms: [],
-        content: []
+        content: [],
       };
       break;
     default:
       persona.name = "Custom Profile";
       persona.traits = {};
   }
-  
+
   return persona;
 }
 
@@ -384,16 +399,24 @@ function createDefaultPersona(categoryType) {
  * @param {string} fileSummary - Source file summary
  * @returns {Promise<Object>} - Updated persona
  */
-async function updatePersonaWithOpenAI(existingPersona, categoryData, fileName, fileType, fileSummary) {
+async function updatePersonaWithOpenAI(
+  existingPersona,
+  categoryData,
+  fileName,
+  fileType,
+  fileSummary
+) {
   console.log(`Updating ${existingPersona.type} persona with AI...`);
-  
+
   // Prepare content for OpenAI
   const prompt = `
-  I'm building a personal data profile for a user. Please update their existing ${existingPersona.type} persona with new information from a data file.
+  I'm building a personal data profile for a user. Please update their existing ${
+    existingPersona.type
+  } persona with new information from a data file.
 
   Existing Persona:
   ${JSON.stringify(existingPersona, null, 2)}
-  
+
   New Data:
   - File: ${fileName}
   - File Type: ${fileType}
@@ -401,14 +424,16 @@ async function updatePersonaWithOpenAI(existingPersona, categoryData, fileName, 
   - Relevance to ${existingPersona.type}: ${categoryData.relevance}/10
   - Category Summary: ${categoryData.summary}
   - Data Points: ${JSON.stringify(categoryData.dataPoints)}
-  
+
   Instructions:
   1. Update the persona's traits with any new information
   2. Add new insights not previously mentioned
   3. Add the new file as a source
-  4. Update the summary to be more comprehensive
-  5. Increase the completeness score (current: ${existingPersona.completeness}/100) based on how much new information was added
-  
+  4. Update the summary to be more comprehensive and usable by a ad-server or a campaign audience creation tool
+  5. Increase the completeness score (current: ${
+    existingPersona.completeness
+  }/100) based on how much new information was added
+
   Return the updated persona in JSON format with the following structure:
   {
     "type": "${existingPersona.type}",
@@ -417,13 +442,13 @@ async function updatePersonaWithOpenAI(existingPersona, categoryData, fileName, 
     "completeness": updated score out of 100,
     "summary": "Updated summary",
     "insights": ["insight 1", "insight 2", ...],
-    "dataPoints": ["dataPoint1", "dataPoint2", ...], 
+    "dataPoints": ["dataPoint1", "dataPoint2", ...],
     "traits": {
       // Appropriate traits for this persona type with updated values
     },
     "sources": ["existing sources", "${fileName}"]
   }
-  
+
   Only make changes to the persona that are supported by the new data. Don't remove existing information unless it's clearly contradicted.
   Return only the JSON object with no additional text.
   `;
@@ -432,13 +457,13 @@ async function updatePersonaWithOpenAI(existingPersona, categoryData, fileName, 
   try {
     const updatedPersonaJson = await callOpenAI(prompt);
     console.log(`Successfully updated ${existingPersona.type} persona`);
-    
+
     // Parse the response as JSON
     try {
       return JSON.parse(updatedPersonaJson);
     } catch (parseError) {
       console.error("Failed to parse OpenAI response as JSON:", parseError);
-      
+
       // Attempt to extract JSON from the response if it contains other text
       const jsonMatch = updatedPersonaJson.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -448,13 +473,13 @@ async function updatePersonaWithOpenAI(existingPersona, categoryData, fileName, 
           console.error("Failed to extract JSON from response:", e);
         }
       }
-      
+
       // If we can't parse, return existing persona
       console.log("Returning original persona due to parsing error");
       return {
         ...existingPersona,
         lastUpdated: new Date().toISOString(),
-        sources: [...(existingPersona.sources || []), fileName]
+        sources: [...(existingPersona.sources || []), fileName],
       };
     }
   } catch (error) {
@@ -463,7 +488,7 @@ async function updatePersonaWithOpenAI(existingPersona, categoryData, fileName, 
     return {
       ...existingPersona,
       lastUpdated: new Date().toISOString(),
-      sources: [...(existingPersona.sources || []), fileName]
+      sources: [...(existingPersona.sources || []), fileName],
     };
   }
 }
@@ -475,9 +500,11 @@ async function updatePersonaWithOpenAI(existingPersona, categoryData, fileName, 
  */
 async function savePersonas(userEmail, personas) {
   const personasKey = `${userEmail}/stage3/personas.json`;
-  
-  console.log(`Saving personas to S3: ${process.env.S3_BUCKET_NAME}/${personasKey}`);
-  
+
+  console.log(
+    `Saving personas to S3: ${process.env.S3_BUCKET_NAME}/${personasKey}`
+  );
+
   // Ensure personas have proper timestamps
   const timestamp = new Date().toISOString();
   for (const type in personas) {
@@ -485,7 +512,7 @@ async function savePersonas(userEmail, personas) {
       personas[type].lastUpdated = timestamp;
     }
   }
-  
+
   try {
     const params = {
       Bucket: process.env.S3_BUCKET_NAME,
@@ -514,16 +541,17 @@ async function callOpenAI(prompt) {
       messages: [
         {
           role: "system",
-          content: "You are a data analyst specialized in building comprehensive user personas from personal data exports. Your task is to integrate new information into existing personas."
+          content:
+            "You are a data analyst specialized in building comprehensive user personas from personal data exports. Your task is to integrate new information into existing personas.",
         },
         {
           role: "user",
-          content: prompt
-        }
+          content: prompt,
+        },
       ],
       temperature: 0.3, // Lower temperature for more consistent, focused responses
       max_tokens: 4000,
-      response_format: { type: "json_object" }
+      response_format: { type: "json_object" },
     });
 
     const options = {
@@ -532,9 +560,9 @@ async function callOpenAI(prompt) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Length": Buffer.byteLength(openaiData)
-      }
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Length": Buffer.byteLength(openaiData),
+      },
     };
 
     const req = https.request(options, (res) => {
@@ -555,7 +583,13 @@ async function callOpenAI(prompt) {
             }
           } else {
             console.error("OpenAI API error:", parsedResponse);
-            reject(new Error(`OpenAI API error: ${JSON.stringify(parsedResponse.error || parsedResponse)}`));
+            reject(
+              new Error(
+                `OpenAI API error: ${JSON.stringify(
+                  parsedResponse.error || parsedResponse
+                )}`
+              )
+            );
           }
         } catch (e) {
           reject(new Error(`Failed to parse OpenAI response: ${e.message}`));

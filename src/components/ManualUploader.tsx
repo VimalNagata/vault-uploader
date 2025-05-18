@@ -132,8 +132,8 @@ const ManualUploader: React.FC<ManualUploaderProps> = ({ username, onUploadCompl
       const userFolder = userInfo.s3Prefix || username;
       console.log(`Using user folder for upload: ${userFolder}`);
       
-      // Get raw data stage path for this user
-      const stagePath = getUserStagePath(userFolder, DataStage.RAW_DATA);
+      // Get your data stage path for this user
+      const stagePath = getUserStagePath(userFolder, DataStage.YOUR_DATA);
       console.log(`Uploading files to stage path: ${stagePath}`);
       
       // Process files in batches to show progress
