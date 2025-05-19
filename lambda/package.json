@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "aws-sdk": "^2.1469.0",
-    "google-auth-library": "^8.9.0"
+    "google-auth-library": "^8.9.0",
+    "pdf-parse": "^1.1.1"
   },
   "devDependencies": {
     "aws-lambda": "^1.0.7"
