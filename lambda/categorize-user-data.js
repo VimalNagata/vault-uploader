@@ -336,13 +336,18 @@ async function processFileWithOpenAI(fileName, content, userPrefix, userMasterFi
   
   ${userContext}
   
+  This analysis has TWO purposes:
+  1. Create a DETAILED SUMMARY of this specific file with extensive category information
+  2. Extract FACTUAL METRICS for the user's master profile
+  
+  PART 1: DETAILED FILE SUMMARY
   Extract and categorize information into categories. The following base categories must always be considered:
   - financial: financial transactions, banking information, purchases, subscriptions
   - social: social connections, friends, followers, social interactions
   - professional: work history, skills, education, professional connections
   - entertainment: media consumption, content preferences, games, music, videos
   
-  Additionally, you should identify and create ANY OTHER relevant categories based on the content. 
+  Additionally, identify and create ANY OTHER relevant categories based on the content. 
   Be creative but precise when identifying new categories, such as:
   - health: medical records, fitness data, health metrics
   - travel: location history, trips, travel preferences
@@ -350,11 +355,16 @@ async function processFileWithOpenAI(fileName, content, userPrefix, userMasterFi
   - communication: emails, messages, contacts
   - etc. (identify any other relevant categories based on content)
   
-  For each category, extract relevant data points and provide a short summary.
+  For each category:
+  - Include a comprehensive summary that explains the nature and significance of the information
+  - Extract detailed data points that highlight specific information found
+  - Provide thorough analysis with context and relationships between data points
+  - Identify patterns, trends, or interesting observations within each category
   
-  ALSO, extract FACTUAL INFORMATION AND METRICS about the user, focusing on hard facts and quantifiable data.
+  PART 2: FACTUAL USER PROFILE METRICS
+  At the same time, extract FACTUAL INFORMATION AND METRICS about the user, focusing on hard facts and quantifiable data.
   
-  Focus on collecting these specific types of data:
+  Focus on collecting these specific types of factual data:
   - Demographics: full name, exact age, gender, current location and previous locations
   - Relationships: marital status, spouse/partner name, number of children (with names and ages if available)
   - Financial Status: income range, savings amount, major assets, investment types, credit score range
@@ -371,21 +381,21 @@ async function processFileWithOpenAI(fileName, content, userPrefix, userMasterFi
   {
     "fileName": "name of file",
     "fileType": "type of export (e.g. facebook, google, bank statement)",
-    "summary": "brief 2-3 sentence summary of what this file contains",
+    "summary": "detailed 3-5 sentence summary of what this file contains, why it's important, and key insights",
     "categories": {
       "financial": {
         "relevance": 0-10 score indicating how relevant this file is to this category,
-        "summary": "summary of financial information found",
-        "dataPoints": ["list", "of", "key", "data points"]
+        "summary": "comprehensive summary of financial information found with analysis and context",
+        "dataPoints": ["detailed list", "of key data points", "with specific information"]
       },
-      "social": { ... same structure ... },
-      "professional": { ... same structure ... },
-      "entertainment": { ... same structure ... },
-      "NEW_CATEGORY_NAME": { ... same structure ... },
+      "social": { ... same structure with detailed summary and specific data points ... },
+      "professional": { ... same structure with detailed summary and specific data points ... },
+      "entertainment": { ... same structure with detailed summary and specific data points ... },
+      "NEW_CATEGORY_NAME": { ... same structure with detailed summary and specific data points ... },
       ... add any other relevant categories with the same structure
     },
     "entityNames": ["list", "of", "entities", "mentioned"],
-    "insights": ["list", "of", "potential", "insights"],
+    "insights": ["list", "of", "potential", "insights", "including patterns and observations"],
     "sensitiveInfo": true/false,
     "userProfile": {
       "demographics": {
@@ -446,6 +456,8 @@ async function processFileWithOpenAI(fileName, content, userPrefix, userMasterFi
   }
   
   Only include categories where relevance > 0. The userProfile section should update and extend (not replace) any existing information from the user context. For each metric, only include it if you find relevant information in the data. Return the result as a JSON object with no additional text.
+  
+  Make the file summary and category summaries MUCH MORE DETAILED than the user profile metrics section. The file-specific information should be comprehensive and insightful, while the user profile metrics should focus on hard facts and numbers.
   
   Here's the file content:
   ${truncatedContent}
