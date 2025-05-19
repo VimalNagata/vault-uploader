@@ -6,19 +6,32 @@ import FileTree from "./FileTree";
 // Helper function to get category summaries
 const getCategorySummary = (categoryType: string): string => {
   const summaries: Record<string, string> = {
-    social: "Your social media data includes profile information, posts, and interactions from various platforms.",
-    financial: "Your financial data includes transactions, account information, and spending patterns.",
-    professional: "Your professional data includes employment history, skills, and workplace interactions.",
-    entertainment: "Your entertainment data includes media preferences, streaming history, and content interactions.",
-    communication: "Your communication data includes messaging and email interactions with contacts.",
-    location: "Your location data includes places visited, travel patterns, and location history.",
-    shopping: "Your shopping data includes purchase history, preferences, and shopping patterns.",
-    health: "Your health and wellness data includes fitness metrics, health records, and wellness activities.",
-    search: "Your search data includes search queries, browsing history, and content interests.",
-    device: "Your device data includes information about device usage, settings, and applications.",
+    social:
+      "Your social media data includes profile information, posts, and interactions from various platforms.",
+    financial:
+      "Your financial data includes transactions, account information, and spending patterns.",
+    professional:
+      "Your professional data includes employment history, skills, and workplace interactions.",
+    entertainment:
+      "Your entertainment data includes media preferences, streaming history, and content interactions.",
+    communication:
+      "Your communication data includes messaging and email interactions with contacts.",
+    location:
+      "Your location data includes places visited, travel patterns, and location history.",
+    shopping:
+      "Your shopping data includes purchase history, preferences, and shopping patterns.",
+    health:
+      "Your health and wellness data includes fitness metrics, health records, and wellness activities.",
+    search:
+      "Your search data includes search queries, browsing history, and content interests.",
+    device:
+      "Your device data includes information about device usage, settings, and applications.",
   };
-  
-  return summaries[categoryType] || `Analysis of your ${categoryType} data from various sources.`;
+
+  return (
+    summaries[categoryType] ||
+    `Analysis of your ${categoryType} data from various sources.`
+  );
 };
 
 interface UserInfo {
@@ -33,8 +46,8 @@ interface UserInfo {
 interface FileCategory {
   name: string;
   icon: string;
-  count: number | null;  // Allow null for summary mode
-  size: string | null;   // Allow null for summary mode
+  count: number | null; // Allow null for summary mode
+  size: string | null; // Allow null for summary mode
   lastUpdated: string;
   fileExamples?: string[];
 }
@@ -136,7 +149,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
   const [fileCategories, setFileCategories] = useState<FileCategory[]>([]);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [totalStorage, setTotalStorage] = useState("0 MB");
-  // Define interface for enhanced metrics 
+  // Define interface for enhanced metrics
   interface EnhancedMetrics {
     fileCount: number;
     totalSize: number;
@@ -151,7 +164,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
     personaCounts?: number;
     personaTypes?: string[];
   }
-  
+
   const [metrics, setMetrics] = useState<EnhancedMetrics | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -188,8 +201,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
       return `${diffMins} minute${diffMins > 1 ? "s" : ""} ago`;
     if (diffHours < 24)
       return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-    if (diffDays < 7)
-      return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
     if (diffWeeks < 5)
       return `${diffWeeks} week${diffWeeks > 1 ? "s" : ""} ago`;
     return date.toLocaleDateString();
@@ -198,83 +210,96 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
   // Process categorized data to create category cards
   const processCategorizedData = (categorized: any) => {
     const { files, categoryTypes } = categorized;
-    
+
     if (!files || Object.keys(files).length === 0) {
       return [];
     }
-    
+
     // Initialize category metrics with file examples array
-    const categories: Record<string, { 
-      count: number, 
-      size: number, 
-      lastUpdated: string | null, 
-      fileExamples: string[] 
-    }> = {};
-    
+    const categories: Record<
+      string,
+      {
+        count: number;
+        size: number;
+        lastUpdated: string | null;
+        fileExamples: string[];
+      }
+    > = {};
+
     // Process each categorized file
     Object.entries(files).forEach(([fileName, fileData]: [string, any]) => {
       if (fileData.categories) {
         // For each category in the file
-        Object.keys(fileData.categories).forEach(category => {
+        Object.keys(fileData.categories).forEach((category) => {
           if (!categories[category]) {
-            categories[category] = { 
-              count: 0, 
-              size: 0, 
-              lastUpdated: null, 
-              fileExamples: [] 
+            categories[category] = {
+              count: 0,
+              size: 0,
+              lastUpdated: null,
+              fileExamples: [],
             };
           }
-          
+
           // Increment count
           categories[category].count++;
-          
+
           // Add file to examples if we have fewer than 5 examples
           if (categories[category].fileExamples.length < 5) {
             // Get simplified filename (remove path)
-            const simpleName = fileName.split('/').pop() || fileName;
+            const simpleName = fileName.split("/").pop() || fileName;
             if (!categories[category].fileExamples.includes(simpleName)) {
               categories[category].fileExamples.push(simpleName);
             }
           }
-          
+
           // Update last updated if newer
-          const fileDate = new Date(fileData.lastUpdated || new Date()).toISOString();
-          if (!categories[category].lastUpdated || 
-              (categories[category].lastUpdated && fileDate > (categories[category].lastUpdated || ''))) {
+          const fileDate = new Date(
+            fileData.lastUpdated || new Date()
+          ).toISOString();
+          if (
+            !categories[category].lastUpdated ||
+            (categories[category].lastUpdated &&
+              fileDate > (categories[category].lastUpdated || ""))
+          ) {
             categories[category].lastUpdated = fileDate;
           }
         });
       }
     });
-    
+
     // Create category cards
     return Object.entries(categories).map(([type, metrics]) => ({
       name: type.charAt(0).toUpperCase() + type.slice(1),
       icon: type,
       count: metrics.count,
       size: formatBytes(metrics.size || 0),
-      lastUpdated: getRelativeTimeString(new Date(metrics.lastUpdated || new Date())),
-      fileExamples: metrics.fileExamples
+      lastUpdated: getRelativeTimeString(
+        new Date(metrics.lastUpdated || new Date())
+      ),
+      fileExamples: metrics.fileExamples,
     }));
   };
-  
+
   // Process personas data to create persona cards
   const processPersonas = (personas: Record<string, any>) => {
     if (!personas || Object.keys(personas).length === 0) {
       return [];
     }
-    
+
     return Object.entries(personas).map(([type, data]) => ({
       id: type,
-      name: data.name || `${type.charAt(0).toUpperCase() + type.slice(1)} Profile`,
+      name:
+        data.name || `${type.charAt(0).toUpperCase() + type.slice(1)} Profile`,
       type: type.charAt(0).toUpperCase() + type.slice(1),
       completeness: data.completeness || 0,
-      lastUpdated: getRelativeTimeString(new Date(data.lastUpdated || new Date())),
+      lastUpdated: getRelativeTimeString(
+        new Date(data.lastUpdated || new Date())
+      ),
       summary: data.summary || undefined,
       insights: data.insights || [],
       dataPoints: data.dataPoints || [],
       traits: data.traits || {},
-      sources: data.sources || []
+      sources: data.sources || [],
     }));
   };
 
@@ -288,113 +313,141 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
       const userData = await S3Service.getUserDataMetrics(
         username,
         DataStage.YOUR_DATA,
-        true,  // includeAllStages
-        true,  // summaryOnly - we only need metadata for the dashboard
+        true, // includeAllStages
+        true, // summaryOnly - we only need metadata for the dashboard
         undefined, // No stage filter for initial load
-        true  // Skip file tree to reduce payload size
+        true // Skip file tree to reduce payload size
       );
 
       // Extract metrics and other data
       // Destructure with defaults to handle missing properties
-      const { 
-        metrics, 
+      const {
+        metrics,
         files,
         categorized = { files: {}, categoryTypes: [] },
-        personas = null
+        personas = null,
       } = userData;
 
       console.log(
         `Retrieved metrics: ${metrics.fileCount} files, ${metrics.totalSizeFormatted} total size`
       );
-      console.log(`Data includes categorized: ${!!userData.categorized}, personas: ${!!userData.personas}`);
+      console.log(
+        `Data includes categorized: ${!!userData.categorized}, personas: ${!!userData.personas}`
+      );
 
       // Save metrics for use in the UI
       // Extract or calculate counts for dashboard sections
       const enhancedMetrics = {
         ...metrics,
         // Category counts - use categoryTypes array length first, then try counting files
-        categoryCounts: categorized?.categoryTypes?.length || 
-                       (categorized?.files ? Object.keys(categorized.files).length : 0),
+        categoryCounts:
+          categorized?.categoryTypes?.length ||
+          (categorized?.files ? Object.keys(categorized.files).length : 0),
         // Persona counts - use direct count from personas object or personaTypes if available
-        personaCounts: personas ? Object.keys(personas).length : 
-                     (userData.personaTypes ? userData.personaTypes.length : 0),
+        personaCounts: personas
+          ? Object.keys(personas).length
+          : userData.personaTypes
+          ? userData.personaTypes.length
+          : 0,
         // Store personaTypes for creating summary cards in summary mode
-        personaTypes: personas ? Object.keys(personas) : 
-                    (userData.personaTypes && Array.isArray(userData.personaTypes) ? userData.personaTypes : [])
+        personaTypes: personas
+          ? Object.keys(personas)
+          : userData.personaTypes && Array.isArray(userData.personaTypes)
+          ? userData.personaTypes
+          : [],
       };
       setMetrics(enhancedMetrics);
 
       // Initialize an empty file tree structure (will be populated on demand)
       setFileTree({
-        name: 'root',
-        type: 'folder',
+        name: "root",
+        type: "folder",
         children: [],
-        size: metrics.totalSize || 0
+        size: metrics.totalSize || 0,
       });
-      
+
       // In summary mode, files might be empty - that's ok for the dashboard
       if (files) {
         setRawFiles(files);
       } else {
-        console.log("No files included in summary response (expected in summary mode)");
+        console.log(
+          "No files included in summary response (expected in summary mode)"
+        );
         setRawFiles([]);
       }
 
       // Update total storage directly from metrics
       setTotalStorage(metrics.totalSizeFormatted);
-      
+
       // Reset categories and personas arrays initially
       setFileCategories([]);
       setPersonas([]);
-      
+
       // Update categories if available
       if (userData.categorized) {
         console.log("Processing categorized data from API response");
-        
+
         // Check if we have detailed file data for categories
         if (categorized.files && Object.keys(categorized.files).length > 0) {
           const categoryData = processCategorizedData(categorized);
           if (categoryData.length > 0) {
-            console.log(`Setting ${categoryData.length} categories in state from detailed data`);
+            console.log(
+              `Setting ${categoryData.length} categories in state from detailed data`
+            );
             setFileCategories(categoryData);
           }
-        } 
+        }
         // If no detailed file data (likely summary mode) but we have categoryTypes
-        else if (categorized.categoryTypes && categorized.categoryTypes.length > 0) {
-          console.log(`Creating summary cards for ${categorized.categoryTypes.length} category types`);
-          
+        else if (
+          categorized.categoryTypes &&
+          categorized.categoryTypes.length > 0
+        ) {
+          console.log(
+            `Creating summary cards for ${categorized.categoryTypes.length} category types`
+          );
+
           // Create basic category cards from the categoryTypes array
-          const summaryCards = categorized.categoryTypes.map((type: string) => ({
-            name: type.charAt(0).toUpperCase() + type.slice(1),
-            icon: type.toLowerCase(),
-            count: null, // No count in summary mode - will hide the display
-            size: null, // No size in summary mode - will hide the display
-            lastUpdated: "Recently",
-            fileExamples: []
-          }));
-          
+          const summaryCards = categorized.categoryTypes.map(
+            (type: string) => ({
+              name: type.charAt(0).toUpperCase() + type.slice(1),
+              icon: type.toLowerCase(),
+              count: null, // No count in summary mode - will hide the display
+              size: null, // No size in summary mode - will hide the display
+              lastUpdated: "Recently",
+              fileExamples: [],
+            })
+          );
+
           setFileCategories(summaryCards);
         }
       } else {
         console.log("No valid categorized data found in API response");
       }
-      
+
       // Update personas if available
       if (userData.personas) {
         console.log("Processing personas from API response");
-        
+
         // If we have detailed persona data
         if (personas && Object.keys(personas).length > 0) {
           const personaData = processPersonas(personas);
           if (personaData.length > 0) {
-            console.log(`Setting ${personaData.length} personas in state from detailed data`);
+            console.log(
+              `Setting ${personaData.length} personas in state from detailed data`
+            );
             setPersonas(personaData);
           }
         }
         // If we only have summary data but know persona types exist from the API response object
-        else if (userData.personaTypes && Array.isArray(userData.personaTypes) && userData.personaTypes.length > 0) {
-          console.log(`Creating summary cards for ${userData.personaTypes.length} persona types from API response`);
-          
+        else if (
+          userData.personaTypes &&
+          Array.isArray(userData.personaTypes) &&
+          userData.personaTypes.length > 0
+        ) {
+          console.log(
+            `Creating summary cards for ${userData.personaTypes.length} persona types from API response`
+          );
+
           // Create basic persona cards from the personaTypes in the API response
           const summaryPersonas = userData.personaTypes.map((type: string) => ({
             id: type.toLowerCase(),
@@ -402,9 +455,9 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
             type: type.charAt(0).toUpperCase() + type.slice(1),
             completeness: 50, // Default placeholder value
             lastUpdated: "Recently",
-            insights: []
+            insights: [],
           }));
-          
+
           setPersonas(summaryPersonas);
         }
       } else {
@@ -423,17 +476,17 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
       // Only show real categories and personas from the API response
       // If no categories or personas are available, the UI will show empty lists
       console.log("Using only real data from the API response");
-      
+
       // Note: No mock data is being used. If there's no real data,
       // the Dashboard will show empty category and persona sections.
     } catch (error) {
       console.error("Error loading dashboard data:", error);
-      
+
       // No mock data - just show error state
       setFileCategories([]);
       setPersonas([]);
       setTotalStorage("0 MB (API Error)");
-      
+
       // Set empty file tree and raw files
       setFileTree({
         name: "root",
@@ -441,7 +494,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
         children: [],
         size: 0,
       });
-      
+
       setRawFiles([]);
     } finally {
       setIsLoading(false);
@@ -647,30 +700,30 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
           </p>
         </div>
         <div className="dashboard-actions">
-          <button 
-            className="refresh-button" 
+          <button
+            className="refresh-button"
             onClick={() => loadUserData()}
             disabled={isLoading}
           >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              width="16" 
-              height="16" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               className="refresh-icon"
-              style={{ marginRight: '8px' }}
+              style={{ marginRight: "8px" }}
             >
               <path d="M23 4v6h-6"></path>
               <path d="M1 20v-6h6"></path>
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path>
               <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"></path>
             </svg>
-            {isLoading ? "Loading..." : "Refresh Data"}
+            {isLoading ? "Loading..." : ""}
           </button>
         </div>
       </div>
@@ -717,7 +770,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                     <div className="summary-stats">
                       <div className="summary-stat">
                         <span className="stat-value">
-                          {metrics ? metrics.fileCount : (rawFiles.length || 0)}
+                          {metrics ? metrics.fileCount : rawFiles.length || 0}
                         </span>
                         <span className="stat-label">Files Uploaded</span>
                       </div>
@@ -727,7 +780,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                         <span className="stat-label">Total Storage</span>
                       </div>
                       <div className="stat-divider"></div>
-                      
+
                       {/* File Explorer removed from here to avoid showing in main dashboard */}
                       {/* Dropzone Upload Area */}
                       <div
@@ -815,7 +868,8 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                         <div className="dropzone-text">
                           <h4>Drag & drop files or folders here</h4>
                           <p>
-                            Upload CCPA data to generate insights for your Digital DNA
+                            Upload CCPA data to generate insights for your
+                            Digital DNA
                           </p>
                         </div>
                       </div>
@@ -869,7 +923,10 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
             {/* Stage 2: Analyzed Data Section */}
             <div className="dashboard-section">
               <div className="section-header">
-                <h3>Analyzed Data ({metrics?.categoryCounts || fileCategories.length})</h3>
+                <h3>
+                  Analyzed Data (
+                  {metrics?.categoryCounts || fileCategories.length})
+                </h3>
               </div>
 
               <div className="category-cards">
@@ -883,10 +940,14 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                           {category.count !== null && (
                             <>
                               <span>{category.count} files</span>
-                              {category.size !== null && <span className="dot-separator">•</span>}
+                              {category.size !== null && (
+                                <span className="dot-separator">•</span>
+                              )}
                             </>
                           )}
-                          {category.size !== null && <span>{category.size}</span>}
+                          {category.size !== null && (
+                            <span>{category.size}</span>
+                          )}
                         </div>
                       )}
                       <div className="category-updated">
@@ -895,9 +956,11 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                       <div className="category-summary">
                         {getCategorySummary(category.name.toLowerCase())}
                       </div>
-                      <button 
+                      <button
                         className="text-button view-details-link"
-                        onClick={() => onNavigate(`category/${category.name.toLowerCase()}`)}
+                        onClick={() =>
+                          onNavigate(`category/${category.name.toLowerCase()}`)
+                        }
                       >
                         View Details →
                       </button>
@@ -920,20 +983,20 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                       <h4>{persona.name}</h4>
                       <span className="persona-type">{persona.type}</span>
                     </div>
-                    
+
                     {/* Progress bar */}
                     <ProgressBar
                       percentage={persona.completeness}
                       type={persona.type}
                     />
-                    
+
                     {/* Summary (if available) */}
                     {persona.summary && (
                       <div className="persona-summary">
                         <p>{persona.summary}</p>
                       </div>
                     )}
-                    
+
                     {/* Insights (if available) */}
                     {persona.insights && persona.insights.length > 0 && (
                       <div className="persona-insights">
@@ -945,36 +1008,52 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                         </ul>
                       </div>
                     )}
-                    
+
                     {/* Traits (if available) */}
-                    {persona.traits && Object.keys(persona.traits).length > 0 && (
-                      <div className="persona-traits">
-                        <h5>Traits:</h5>
-                        <div className="traits-list">
-                          {Object.entries(persona.traits).slice(0, 3).map(([key, value]) => (
-                            <div className="trait-item" key={key}>
-                              <span className="trait-key">{key.charAt(0).toUpperCase() + key.slice(1)}:</span>
-                              <span className="trait-value">
-                                {Array.isArray(value) 
-                                  ? value.slice(0, 2).join(', ') + (value.length > 2 ? '...' : '')
-                                  : typeof value === 'object' && value !== null
-                                    ? Object.entries(value).slice(0, 2).map(([k, v]) => `${k}: ${v}`).join(', ') + (Object.keys(value).length > 2 ? '...' : '')
-                                    : String(value)
-                                }
-                              </span>
-                            </div>
-                          ))}
+                    {persona.traits &&
+                      Object.keys(persona.traits).length > 0 && (
+                        <div className="persona-traits">
+                          <h5>Traits:</h5>
+                          <div className="traits-list">
+                            {Object.entries(persona.traits)
+                              .slice(0, 3)
+                              .map(([key, value]) => (
+                                <div className="trait-item" key={key}>
+                                  <span className="trait-key">
+                                    {key.charAt(0).toUpperCase() + key.slice(1)}
+                                    :
+                                  </span>
+                                  <span className="trait-value">
+                                    {Array.isArray(value)
+                                      ? value.slice(0, 2).join(", ") +
+                                        (value.length > 2 ? "..." : "")
+                                      : typeof value === "object" &&
+                                        value !== null
+                                      ? Object.entries(value)
+                                          .slice(0, 2)
+                                          .map(([k, v]) => `${k}: ${v}`)
+                                          .join(", ") +
+                                        (Object.keys(value).length > 2
+                                          ? "..."
+                                          : "")
+                                      : String(value)}
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    
+                      )}
+
                     {/* Source data (if available) */}
                     {persona.sources && persona.sources.length > 0 && (
                       <div className="persona-sources">
-                        <span>Based on {persona.sources.length} source{persona.sources.length !== 1 ? 's' : ''}</span>
+                        <span>
+                          Based on {persona.sources.length} source
+                          {persona.sources.length !== 1 ? "s" : ""}
+                        </span>
                       </div>
                     )}
-                    
+
                     <div className="persona-footer">
                       <span>Updated {persona.lastUpdated}</span>
                       <div className="persona-status">Auto-updating</div>
