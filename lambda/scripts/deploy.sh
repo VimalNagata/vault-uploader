@@ -172,10 +172,20 @@ build_lambda() {
   
   echo "Building Lambda package for $function_name..."
   
-  if [[ ! -f "$SCRIPT_DIR/$function_name.js" ]]; then
-    echo "Error: Lambda function file $function_name.js not found."
-    return 1
+  # Look for the Lambda file in the parent directory of the script directory
+  local LAMBDA_DIR="$(dirname "$SCRIPT_DIR")"
+  
+  if [[ ! -f "$LAMBDA_DIR/$function_name.js" ]]; then
+    # Try in the script directory as a fallback
+    if [[ ! -f "$SCRIPT_DIR/$function_name.js" ]]; then
+      echo "Error: Lambda function file $function_name.js not found in either $LAMBDA_DIR or $SCRIPT_DIR."
+      return 1
+    else
+      LAMBDA_DIR="$SCRIPT_DIR"
+    fi
   fi
+  
+  echo "Found Lambda function file at: $LAMBDA_DIR/$function_name.js"
   
   # Create dist directory if it doesn't exist
   mkdir -p "$SCRIPT_DIR/dist"
@@ -185,7 +195,7 @@ build_lambda() {
   mkdir -p "$temp_dir"
   
   # Copy Lambda file
-  cp "$SCRIPT_DIR/$function_name.js" "$temp_dir/"
+  cp "$LAMBDA_DIR/$function_name.js" "$temp_dir/"
   
   # Create package.json for the Lambda
   cat > "$temp_dir/package.json" <<EOL

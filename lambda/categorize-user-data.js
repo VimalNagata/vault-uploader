@@ -205,10 +205,16 @@ async function processFile(userEmail, filePath, fileName) {
       fileCount: 0,
       userProfile: {
         demographics: {},
-        socialConnections: [],
-        affiliations: [],
-        interests: [],
-        behaviors: []
+        financialMetrics: {},
+        professionalMetrics: {},
+        socialMetrics: {
+          connectionsCount: 0,
+          platformsUsed: []
+        },
+        healthMetrics: {},
+        travelMetrics: {},
+        technologyMetrics: {},
+        interests: []
       }
     };
   }
@@ -346,13 +352,20 @@ async function processFileWithOpenAI(fileName, content, userPrefix, userMasterFi
   
   For each category, extract relevant data points and provide a short summary.
   
-  ALSO, extract detailed information about the user, including but not limited to:
-  - Demographics: name, age, gender, location, etc.
-  - Social connections: family members, friends, colleagues
-  - Relationships: marital status, family structure
-  - Institutional affiliations: schools, employers, organizations
-  - Interests and preferences: hobbies, favorite activities
-  - Behavioral patterns: recurring activities, habits
+  ALSO, extract FACTUAL INFORMATION AND METRICS about the user, focusing on hard facts and quantifiable data.
+  
+  Focus on collecting these specific types of data:
+  - Demographics: full name, exact age, gender, current location and previous locations
+  - Relationships: marital status, spouse/partner name, number of children (with names and ages if available)
+  - Financial Status: income range, savings amount, major assets, investment types, credit score range
+  - Professional: current job title and employer, years of experience, number of previous employers, highest education level
+  - Social: number of connections/friends (not all individual names), primary social platforms used, frequency of activity
+  - Health: any medical conditions mentioned, height, weight, exercise frequency 
+  - Travel: number of trips taken, frequent destinations, typical accommodation preferences
+  - Technology: devices owned, operating systems used, software preferences
+  
+  Provide METRICS whenever possible (counts, frequencies, ranges, amounts, etc.) rather than descriptive text.
+  If exact values aren't available, provide reasonable estimations based on the data.
   
   Format your response as a JSON object with the following structure:
   {
@@ -376,36 +389,63 @@ async function processFileWithOpenAI(fileName, content, userPrefix, userMasterFi
     "sensitiveInfo": true/false,
     "userProfile": {
       "demographics": {
-        "name": "user's name if found",
-        "age": "user's age if found",
+        "name": "user's full name if found",
+        "age": "user's exact age if found (number)",
         "gender": "user's gender if found",
-        "location": "user's location if found",
-        ... any other demographic information
+        "currentLocation": "user's current city, state, country",
+        "previousLocations": ["location1", "location2"],
+        "birthDate": "YYYY-MM-DD if found",
+        "maritalStatus": "single/married/divorced/etc.",
+        "familyMembers": {
+          "spouse": "spouse name if applicable",
+          "childrenCount": number of children if applicable,
+          "children": ["child1 name and age", "child2 name and age"]
+        }
       },
-      "socialConnections": [
-        {
-          "name": "person's name",
-          "relationship": "relationship to user",
-          "details": "any additional details about this connection"
-        },
-        ... more connections
-      ],
-      "affiliations": [
-        {
-          "organization": "organization name",
-          "type": "school/employer/etc",
-          "role": "user's role in the organization",
-          "timeframe": "period of affiliation"
-        },
-        ... more affiliations
-      ],
-      "interests": ["interest1", "interest2", ...],
-      "behaviors": ["behavior1", "behavior2", ...],
-      ... any other relevant user profile information
+      "financialMetrics": {
+        "incomeRange": "estimated annual income range in USD",
+        "savingsEstimate": "estimated savings amount in USD",
+        "majorAssets": ["home", "vehicle", etc.],
+        "investmentTypes": ["stocks", "bonds", "real estate", etc.],
+        "creditScoreRange": "credit score range if found",
+        "subscriptionsCount": number of subscriptions found,
+        "averageMonthlySpending": "estimated monthly spending in USD"
+      },
+      "professionalMetrics": {
+        "currentEmployer": "current employer name",
+        "currentTitle": "current job title",
+        "yearsExperience": number of years of professional experience,
+        "employerCount": number of previous employers,
+        "highestEducation": "highest degree or education level",
+        "skills": ["skill1", "skill2", "skill3"] (limit to top skills)
+      },
+      "socialMetrics": {
+        "connectionsCount": total number of social connections found,
+        "platformsUsed": ["platform1", "platform2"],
+        "primaryPlatform": "most used social platform",
+        "activityFrequency": "daily/weekly/monthly/etc."
+      },
+      "healthMetrics": {
+        "conditions": ["condition1", "condition2"],
+        "height": "height in cm or ft/in if found",
+        "weight": "weight in kg or lbs if found",
+        "exerciseFrequency": "times per week/month"
+      },
+      "travelMetrics": {
+        "tripsCount": number of trips mentioned,
+        "frequentDestinations": ["destination1", "destination2"],
+        "accommodationPreference": "hotel/airbnb/etc."
+      },
+      "technologyMetrics": {
+        "devicesOwned": ["device1", "device2"],
+        "operatingSystems": ["OS1", "OS2"],
+        "softwareUsed": ["software1", "software2"]
+      },
+      "interests": ["interest1", "interest2"] (limit to key interests)
     }
   }
   
-  Only include categories where relevance > 0. The userProfile section should update and extend (not replace) any existing information from the user context. Return the result as a JSON object with no additional text.
+  Only include categories where relevance > 0. The userProfile section should update and extend (not replace) any existing information from the user context. For each metric, only include it if you find relevant information in the data. Return the result as a JSON object with no additional text.
   
   Here's the file content:
   ${truncatedContent}
@@ -627,10 +667,7 @@ function updateUserMasterFile(existingMasterFile, newCategoryData) {
     if (!updatedMasterFile.userProfile) {
       updatedMasterFile.userProfile = {
         demographics: {},
-        socialConnections: [],
-        affiliations: [],
-        interests: [],
-        behaviors: []
+        interests: []
       };
     }
     
@@ -642,65 +679,217 @@ function updateUserMasterFile(existingMasterFile, newCategoryData) {
       };
     }
     
-    // Update social connections (avoiding duplicates)
-    if (newCategoryData.userProfile.socialConnections && Array.isArray(newCategoryData.userProfile.socialConnections)) {
-      const existingNames = new Set(
-        updatedMasterFile.userProfile.socialConnections.map(conn => conn.name.toLowerCase())
-      );
+    // Update financial metrics
+    if (newCategoryData.userProfile.financialMetrics) {
+      if (!updatedMasterFile.userProfile.financialMetrics) {
+        updatedMasterFile.userProfile.financialMetrics = {};
+      }
       
-      for (const connection of newCategoryData.userProfile.socialConnections) {
-        if (!connection.name) continue;
+      updatedMasterFile.userProfile.financialMetrics = {
+        ...updatedMasterFile.userProfile.financialMetrics,
+        ...newCategoryData.userProfile.financialMetrics
+      };
+      
+      // Merge arrays if they exist
+      if (newCategoryData.userProfile.financialMetrics.majorAssets && Array.isArray(newCategoryData.userProfile.financialMetrics.majorAssets)) {
+        if (!updatedMasterFile.userProfile.financialMetrics.majorAssets) {
+          updatedMasterFile.userProfile.financialMetrics.majorAssets = [];
+        }
         
-        const lowerName = connection.name.toLowerCase();
+        const existingAssets = new Set(updatedMasterFile.userProfile.financialMetrics.majorAssets.map(asset => 
+          typeof asset === 'string' ? asset.toLowerCase() : JSON.stringify(asset)
+        ));
         
-        if (!existingNames.has(lowerName)) {
-          // New connection, add it
-          updatedMasterFile.userProfile.socialConnections.push(connection);
-          existingNames.add(lowerName);
-        } else {
-          // Update existing connection
-          const existingIdx = updatedMasterFile.userProfile.socialConnections.findIndex(
-            conn => conn.name.toLowerCase() === lowerName
-          );
+        for (const asset of newCategoryData.userProfile.financialMetrics.majorAssets) {
+          if (!asset) continue;
           
-          if (existingIdx >= 0) {
-            updatedMasterFile.userProfile.socialConnections[existingIdx] = {
-              ...updatedMasterFile.userProfile.socialConnections[existingIdx],
-              ...connection
-            };
+          const assetKey = typeof asset === 'string' ? asset.toLowerCase() : JSON.stringify(asset);
+          if (!existingAssets.has(assetKey)) {
+            updatedMasterFile.userProfile.financialMetrics.majorAssets.push(asset);
+          }
+        }
+      }
+      
+      // Merge investment types
+      if (newCategoryData.userProfile.financialMetrics.investmentTypes && Array.isArray(newCategoryData.userProfile.financialMetrics.investmentTypes)) {
+        if (!updatedMasterFile.userProfile.financialMetrics.investmentTypes) {
+          updatedMasterFile.userProfile.financialMetrics.investmentTypes = [];
+        }
+        
+        const existingInvestments = new Set(updatedMasterFile.userProfile.financialMetrics.investmentTypes.map(inv => 
+          typeof inv === 'string' ? inv.toLowerCase() : JSON.stringify(inv)
+        ));
+        
+        for (const investment of newCategoryData.userProfile.financialMetrics.investmentTypes) {
+          if (!investment) continue;
+          
+          const invKey = typeof investment === 'string' ? investment.toLowerCase() : JSON.stringify(investment);
+          if (!existingInvestments.has(invKey)) {
+            updatedMasterFile.userProfile.financialMetrics.investmentTypes.push(investment);
           }
         }
       }
     }
     
-    // Update affiliations (avoiding duplicates)
-    if (newCategoryData.userProfile.affiliations && Array.isArray(newCategoryData.userProfile.affiliations)) {
-      const existingOrgs = new Set(
-        updatedMasterFile.userProfile.affiliations.map(aff => 
-          `${aff.organization || ''}:${aff.type || ''}`
-        )
-      );
+    // Update professional metrics
+    if (newCategoryData.userProfile.professionalMetrics) {
+      if (!updatedMasterFile.userProfile.professionalMetrics) {
+        updatedMasterFile.userProfile.professionalMetrics = {};
+      }
       
-      for (const affiliation of newCategoryData.userProfile.affiliations) {
-        if (!affiliation.organization) continue;
+      updatedMasterFile.userProfile.professionalMetrics = {
+        ...updatedMasterFile.userProfile.professionalMetrics,
+        ...newCategoryData.userProfile.professionalMetrics
+      };
+      
+      // Merge skills
+      if (newCategoryData.userProfile.professionalMetrics.skills && Array.isArray(newCategoryData.userProfile.professionalMetrics.skills)) {
+        if (!updatedMasterFile.userProfile.professionalMetrics.skills) {
+          updatedMasterFile.userProfile.professionalMetrics.skills = [];
+        }
         
-        const key = `${affiliation.organization || ''}:${affiliation.type || ''}`;
+        const existingSkills = new Set(updatedMasterFile.userProfile.professionalMetrics.skills.map(skill => 
+          typeof skill === 'string' ? skill.toLowerCase() : JSON.stringify(skill)
+        ));
         
-        if (!existingOrgs.has(key)) {
-          // New affiliation, add it
-          updatedMasterFile.userProfile.affiliations.push(affiliation);
-          existingOrgs.add(key);
-        } else {
-          // Update existing affiliation
-          const existingIdx = updatedMasterFile.userProfile.affiliations.findIndex(
-            aff => `${aff.organization || ''}:${aff.type || ''}` === key
-          );
+        for (const skill of newCategoryData.userProfile.professionalMetrics.skills) {
+          if (!skill) continue;
           
-          if (existingIdx >= 0) {
-            updatedMasterFile.userProfile.affiliations[existingIdx] = {
-              ...updatedMasterFile.userProfile.affiliations[existingIdx],
-              ...affiliation
-            };
+          const skillKey = typeof skill === 'string' ? skill.toLowerCase() : JSON.stringify(skill);
+          if (!existingSkills.has(skillKey)) {
+            updatedMasterFile.userProfile.professionalMetrics.skills.push(skill);
+          }
+        }
+      }
+    }
+    
+    // Update social metrics
+    if (newCategoryData.userProfile.socialMetrics) {
+      if (!updatedMasterFile.userProfile.socialMetrics) {
+        updatedMasterFile.userProfile.socialMetrics = {};
+      }
+      
+      updatedMasterFile.userProfile.socialMetrics = {
+        ...updatedMasterFile.userProfile.socialMetrics,
+        ...newCategoryData.userProfile.socialMetrics
+      };
+      
+      // Merge platforms used
+      if (newCategoryData.userProfile.socialMetrics.platformsUsed && Array.isArray(newCategoryData.userProfile.socialMetrics.platformsUsed)) {
+        if (!updatedMasterFile.userProfile.socialMetrics.platformsUsed) {
+          updatedMasterFile.userProfile.socialMetrics.platformsUsed = [];
+        }
+        
+        const existingPlatforms = new Set(updatedMasterFile.userProfile.socialMetrics.platformsUsed.map(platform => 
+          typeof platform === 'string' ? platform.toLowerCase() : JSON.stringify(platform)
+        ));
+        
+        for (const platform of newCategoryData.userProfile.socialMetrics.platformsUsed) {
+          if (!platform) continue;
+          
+          const platformKey = typeof platform === 'string' ? platform.toLowerCase() : JSON.stringify(platform);
+          if (!existingPlatforms.has(platformKey)) {
+            updatedMasterFile.userProfile.socialMetrics.platformsUsed.push(platform);
+          }
+        }
+      }
+    }
+
+    // Update health metrics
+    if (newCategoryData.userProfile.healthMetrics) {
+      if (!updatedMasterFile.userProfile.healthMetrics) {
+        updatedMasterFile.userProfile.healthMetrics = {};
+      }
+      
+      updatedMasterFile.userProfile.healthMetrics = {
+        ...updatedMasterFile.userProfile.healthMetrics,
+        ...newCategoryData.userProfile.healthMetrics
+      };
+      
+      // Merge conditions
+      if (newCategoryData.userProfile.healthMetrics.conditions && Array.isArray(newCategoryData.userProfile.healthMetrics.conditions)) {
+        if (!updatedMasterFile.userProfile.healthMetrics.conditions) {
+          updatedMasterFile.userProfile.healthMetrics.conditions = [];
+        }
+        
+        const existingConditions = new Set(updatedMasterFile.userProfile.healthMetrics.conditions.map(condition => 
+          typeof condition === 'string' ? condition.toLowerCase() : JSON.stringify(condition)
+        ));
+        
+        for (const condition of newCategoryData.userProfile.healthMetrics.conditions) {
+          if (!condition) continue;
+          
+          const conditionKey = typeof condition === 'string' ? condition.toLowerCase() : JSON.stringify(condition);
+          if (!existingConditions.has(conditionKey)) {
+            updatedMasterFile.userProfile.healthMetrics.conditions.push(condition);
+          }
+        }
+      }
+    }
+    
+    // Update travel metrics
+    if (newCategoryData.userProfile.travelMetrics) {
+      if (!updatedMasterFile.userProfile.travelMetrics) {
+        updatedMasterFile.userProfile.travelMetrics = {};
+      }
+      
+      updatedMasterFile.userProfile.travelMetrics = {
+        ...updatedMasterFile.userProfile.travelMetrics,
+        ...newCategoryData.userProfile.travelMetrics
+      };
+      
+      // Merge frequent destinations
+      if (newCategoryData.userProfile.travelMetrics.frequentDestinations && Array.isArray(newCategoryData.userProfile.travelMetrics.frequentDestinations)) {
+        if (!updatedMasterFile.userProfile.travelMetrics.frequentDestinations) {
+          updatedMasterFile.userProfile.travelMetrics.frequentDestinations = [];
+        }
+        
+        const existingDestinations = new Set(updatedMasterFile.userProfile.travelMetrics.frequentDestinations.map(destination => 
+          typeof destination === 'string' ? destination.toLowerCase() : JSON.stringify(destination)
+        ));
+        
+        for (const destination of newCategoryData.userProfile.travelMetrics.frequentDestinations) {
+          if (!destination) continue;
+          
+          const destinationKey = typeof destination === 'string' ? destination.toLowerCase() : JSON.stringify(destination);
+          if (!existingDestinations.has(destinationKey)) {
+            updatedMasterFile.userProfile.travelMetrics.frequentDestinations.push(destination);
+          }
+        }
+      }
+    }
+    
+    // Update technology metrics
+    if (newCategoryData.userProfile.technologyMetrics) {
+      if (!updatedMasterFile.userProfile.technologyMetrics) {
+        updatedMasterFile.userProfile.technologyMetrics = {};
+      }
+      
+      updatedMasterFile.userProfile.technologyMetrics = {
+        ...updatedMasterFile.userProfile.technologyMetrics,
+        ...newCategoryData.userProfile.technologyMetrics
+      };
+      
+      // Merge arrays: devicesOwned, operatingSystems, softwareUsed
+      const arrayProps = ['devicesOwned', 'operatingSystems', 'softwareUsed'];
+      
+      for (const prop of arrayProps) {
+        if (newCategoryData.userProfile.technologyMetrics[prop] && Array.isArray(newCategoryData.userProfile.technologyMetrics[prop])) {
+          if (!updatedMasterFile.userProfile.technologyMetrics[prop]) {
+            updatedMasterFile.userProfile.technologyMetrics[prop] = [];
+          }
+          
+          const existingItems = new Set(updatedMasterFile.userProfile.technologyMetrics[prop].map(item => 
+            typeof item === 'string' ? item.toLowerCase() : JSON.stringify(item)
+          ));
+          
+          for (const item of newCategoryData.userProfile.technologyMetrics[prop]) {
+            if (!item) continue;
+            
+            const itemKey = typeof item === 'string' ? item.toLowerCase() : JSON.stringify(item);
+            if (!existingItems.has(itemKey)) {
+              updatedMasterFile.userProfile.technologyMetrics[prop].push(item);
+            }
           }
         }
       }
@@ -708,6 +897,10 @@ function updateUserMasterFile(existingMasterFile, newCategoryData) {
     
     // Update interests (avoiding duplicates)
     if (newCategoryData.userProfile.interests && Array.isArray(newCategoryData.userProfile.interests)) {
+      if (!updatedMasterFile.userProfile.interests) {
+        updatedMasterFile.userProfile.interests = [];
+      }
+      
       const existingInterests = new Set(
         updatedMasterFile.userProfile.interests.map(interest => interest.toLowerCase())
       );
@@ -723,30 +916,23 @@ function updateUserMasterFile(existingMasterFile, newCategoryData) {
       }
     }
     
-    // Update behaviors (avoiding duplicates)
-    if (newCategoryData.userProfile.behaviors && Array.isArray(newCategoryData.userProfile.behaviors)) {
-      const existingBehaviors = new Set(
-        updatedMasterFile.userProfile.behaviors.map(behavior => behavior.toLowerCase())
-      );
-      
-      for (const behavior of newCategoryData.userProfile.behaviors) {
-        if (!behavior) continue;
-        
-        const lowerBehavior = behavior.toLowerCase();
-        if (!existingBehaviors.has(lowerBehavior)) {
-          updatedMasterFile.userProfile.behaviors.push(behavior);
-          existingBehaviors.add(lowerBehavior);
-        }
-      }
-    }
-    
-    // Add any other profiles fields that might exist
+    // Handle any other user profile properties we didn't explicitly process
     for (const [key, value] of Object.entries(newCategoryData.userProfile)) {
-      if (!['demographics', 'socialConnections', 'affiliations', 'interests', 'behaviors'].includes(key)) {
-        updatedMasterFile.userProfile[key] = updatedMasterFile.userProfile[key] || [];
+      if (!['demographics', 'financialMetrics', 'professionalMetrics', 'socialMetrics', 
+            'healthMetrics', 'travelMetrics', 'technologyMetrics', 'interests'].includes(key)) {
         
-        if (Array.isArray(value)) {
-          // For array properties, add new items
+        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+          // For object properties, merge them
+          updatedMasterFile.userProfile[key] = {
+            ...(updatedMasterFile.userProfile[key] || {}),
+            ...value
+          };
+        } else if (Array.isArray(value)) {
+          // For array properties, add unique items
+          if (!updatedMasterFile.userProfile[key]) {
+            updatedMasterFile.userProfile[key] = [];
+          }
+          
           const existingItems = new Set(
             updatedMasterFile.userProfile[key].map(item => 
               typeof item === 'string' ? item.toLowerCase() : JSON.stringify(item)
@@ -754,17 +940,16 @@ function updateUserMasterFile(existingMasterFile, newCategoryData) {
           );
           
           for (const item of value) {
+            if (!item) continue;
+            
             const itemKey = typeof item === 'string' ? item.toLowerCase() : JSON.stringify(item);
             if (!existingItems.has(itemKey)) {
               updatedMasterFile.userProfile[key].push(item);
             }
           }
-        } else if (typeof value === 'object' && value !== null) {
-          // For object properties, merge them
-          updatedMasterFile.userProfile[key] = {
-            ...updatedMasterFile.userProfile[key],
-            ...value
-          };
+        } else {
+          // For primitive values, just assign
+          updatedMasterFile.userProfile[key] = value;
         }
       }
     }
