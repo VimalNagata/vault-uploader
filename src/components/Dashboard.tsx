@@ -863,18 +863,17 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                     ? <p>{stockHoldings}</p>
                     : Array.isArray(stockHoldings)
                       ? <ul className="investment-list">
-                          {stockHoldings.slice(0, 5).map((stock, idx) => (
+                          {stockHoldings.slice(0, 5).map((stock: any, idx: number) => (
                             <li key={idx}>{stock}</li>
                           ))}
                           {stockHoldings.length > 5 && <li>...and {stockHoldings.length - 5} more</li>}
                         </ul>
-                      : Object.entries(stockHoldings).map(([stock, details], idx) => (
+                      : stockHoldings && typeof stockHoldings === 'object' && Object.entries(stockHoldings).map(([stock, details], idx: number) => (
                           <div key={idx} className="investment-item">
-                            <strong>{stock}:</strong> {
-                              typeof details === 'object' 
-                                ? Object.entries(details).map(([k, v]) => `${k}: ${v}`).join(', ')
-                                : details
-                            }
+                            <strong>{stock}:</strong> 
+                            {typeof details === 'object' && details !== null
+                              ? Object.entries(details as Record<string, any>).map(([k, v]) => `${k}: ${v}`).join(', ')
+                              : String(details)}
                           </div>
                         ))
                   }
@@ -889,17 +888,16 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                     ? <p>{retirementAccounts}</p>
                     : Array.isArray(retirementAccounts)
                       ? <ul className="investment-list">
-                          {retirementAccounts.map((account, idx) => (
+                          {retirementAccounts.map((account: any, idx: number) => (
                             <li key={idx}>{account}</li>
                           ))}
                         </ul>
-                      : Object.entries(retirementAccounts).map(([account, details], idx) => (
+                      : retirementAccounts && typeof retirementAccounts === 'object' && Object.entries(retirementAccounts).map(([account, details], idx: number) => (
                           <div key={idx} className="investment-item">
-                            <strong>{account}:</strong> {
-                              typeof details === 'object' 
-                                ? Object.entries(details).map(([k, v]) => `${k}: ${v}`).join(', ')
-                                : details
-                            }
+                            <strong>{account}:</strong> 
+                            {typeof details === 'object' && details !== null
+                              ? Object.entries(details as Record<string, any>).map(([k, v]) => `${k}: ${v}`).join(', ')
+                              : String(details)}
                           </div>
                         ))
                   }
@@ -914,17 +912,16 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                     ? <p>{cryptoHoldings}</p>
                     : Array.isArray(cryptoHoldings)
                       ? <ul className="investment-list">
-                          {cryptoHoldings.map((crypto, idx) => (
+                          {cryptoHoldings.map((crypto: any, idx: number) => (
                             <li key={idx}>{crypto}</li>
                           ))}
                         </ul>
-                      : Object.entries(cryptoHoldings).map(([crypto, details], idx) => (
+                      : cryptoHoldings && typeof cryptoHoldings === 'object' && Object.entries(cryptoHoldings).map(([crypto, details], idx: number) => (
                           <div key={idx} className="investment-item">
-                            <strong>{crypto}:</strong> {
-                              typeof details === 'object' 
-                                ? Object.entries(details).map(([k, v]) => `${k}: ${v}`).join(', ')
-                                : details
-                            }
+                            <strong>{crypto}:</strong> 
+                            {typeof details === 'object' && details !== null
+                              ? Object.entries(details as Record<string, any>).map(([k, v]) => `${k}: ${v}`).join(', ')
+                              : String(details)}
                           </div>
                         ))
                   }
@@ -939,17 +936,16 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                     ? <p>{realEstateInvestments}</p>
                     : Array.isArray(realEstateInvestments)
                       ? <ul className="investment-list">
-                          {realEstateInvestments.map((property, idx) => (
+                          {realEstateInvestments.map((property: any, idx: number) => (
                             <li key={idx}>{property}</li>
                           ))}
                         </ul>
-                      : Object.entries(realEstateInvestments).map(([property, details], idx) => (
+                      : realEstateInvestments && typeof realEstateInvestments === 'object' && Object.entries(realEstateInvestments).map(([property, details], idx: number) => (
                           <div key={idx} className="investment-item">
-                            <strong>{property}:</strong> {
-                              typeof details === 'object' 
-                                ? Object.entries(details).map(([k, v]) => `${k}: ${v}`).join(', ')
-                                : details
-                            }
+                            <strong>{property}:</strong> 
+                            {typeof details === 'object' && details !== null
+                              ? Object.entries(details as Record<string, any>).map(([k, v]) => `${k}: ${v}`).join(', ')
+                              : String(details)}
                           </div>
                         ))
                   }
@@ -964,13 +960,13 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                     ? <p>{investmentValues}</p>
                     : Array.isArray(investmentValues)
                       ? <ul className="investment-list">
-                          {investmentValues.map((value, idx) => (
+                          {investmentValues.map((value: any, idx: number) => (
                             <li key={idx}>{value}</li>
                           ))}
                         </ul>
-                      : Object.entries(investmentValues).map(([category, value], idx) => (
+                      : investmentValues && typeof investmentValues === 'object' && Object.entries(investmentValues).map(([category, value], idx: number) => (
                           <div key={idx} className="investment-item">
-                            <strong>{category}:</strong> {value}
+                            <strong>{category}:</strong> {String(value)}
                           </div>
                         ))
                   }
@@ -982,7 +978,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                 <div className="investment-types">
                   <h6 className="investment-category-title">Investment Types</h6>
                   <div className="tag-list">
-                    {investmentTypes.map((type, idx) => (
+                    {investmentTypes.map((type: string, idx: number) => (
                       <span key={idx} className="investment-tag">{type}</span>
                     ))}
                   </div>
@@ -996,7 +992,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
             <div className="assets-section">
               <h5 className="subsection-title">Major Assets</h5>
               <ul className="assets-list">
-                {majorAssets.map((asset, idx) => (
+                {majorAssets.map((asset: string, idx: number) => (
                   <li key={idx}>{asset}</li>
                 ))}
               </ul>
@@ -1012,13 +1008,12 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                 <div className="debt-overview">
                   {typeof debtOverview === 'string' 
                     ? <p>{debtOverview}</p>
-                    : Object.entries(debtOverview).map(([type, details], idx) => (
+                    : debtOverview && typeof debtOverview === 'object' && Object.entries(debtOverview).map(([type, details], idx: number) => (
                         <div key={idx} className="debt-item">
-                          <strong>{type}:</strong> {
-                            typeof details === 'object' 
-                              ? Object.entries(details).map(([k, v]) => `${k}: ${v}`).join(', ')
-                              : details
-                          }
+                          <strong>{type}:</strong> 
+                          {typeof details === 'object' && details !== null
+                            ? Object.entries(details as Record<string, any>).map(([k, v]) => `${k}: ${v}`).join(', ')
+                            : String(details)}
                         </div>
                       ))
                   }
@@ -1030,9 +1025,9 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                   <h6 className="debt-category-title">Mortgage</h6>
                   {typeof mortgageDetails === 'string' 
                     ? <p>{mortgageDetails}</p>
-                    : Object.entries(mortgageDetails).map(([key, value], idx) => (
+                    : mortgageDetails && typeof mortgageDetails === 'object' && Object.entries(mortgageDetails).map(([key, value], idx: number) => (
                         <div key={idx} className="debt-item">
-                          <strong>{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</strong> {value}
+                          <strong>{key.replace(/([A-Z])/g, ' $1').replace(/^./, (str: string) => str.toUpperCase())}:</strong> {String(value)}
                         </div>
                       ))
                   }
@@ -1101,14 +1096,14 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
         </div>
         
         {/* If there are insights, show them at the top */}
-        {hasInsights && (
+        {hasInsights && profile.insights && (
           <div className="profile-section insights-section">
             <h4 className="section-title">
               <span className="section-icon">💡</span>
               Key Insights
             </h4>
             <ul className="insights-list">
-              {profile.insights.slice(0, 5).map((insight, index) => (
+              {profile.insights.slice(0, 5).map((insight: string, index: number) => (
                 <li key={index} className="insight-item">{insight}</li>
               ))}
             </ul>
