@@ -340,12 +340,18 @@ deploy_lambda() {
     
     echo "Creating Lambda function: $function_name..."
     
+    # Upload to S3 first
+    S3_KEY="lambdas/dist/$function_name.zip"
+    echo "Uploading to S3 bucket $S3_BUCKET_NAME/$S3_KEY..."
+    aws s3 cp "dist/$function_name.zip" "s3://$S3_BUCKET_NAME/$S3_KEY" --region "$REGION"
+    
+    # Create from S3
     CREATE_RESULT=$(aws lambda create-function \
       --function-name "$function_name" \
       --runtime nodejs18.x \
       --handler "$function_name.handler" \
       --role "$role_arn" \
-      --zip-file "fileb://dist/$function_name.zip" \
+      --code "S3Bucket=$S3_BUCKET_NAME,S3Key=$S3_KEY" \
       --timeout 60 \
       --memory-size 256 \
       --environment "$env_vars" \
@@ -367,9 +373,17 @@ deploy_lambda() {
     
     # Update function code
     echo "Uploading code to AWS Lambda..."
+    
+    # Upload to S3 first
+    S3_KEY="lambdas/dist/$function_name.zip"
+    echo "Uploading to S3 bucket $S3_BUCKET_NAME/$S3_KEY..."
+    aws s3 cp "dist/$function_name.zip" "s3://$S3_BUCKET_NAME/$S3_KEY" --region "$REGION"
+    
+    # Update from S3
     UPDATE_RESULT=$(aws lambda update-function-code \
       --function-name "$function_name" \
-      --zip-file "fileb://dist/$function_name.zip" \
+      --s3-bucket "$S3_BUCKET_NAME" \
+      --s3-key "$S3_KEY" \
       --region "$REGION" \
       --query 'LastModified' \
       --output text)
