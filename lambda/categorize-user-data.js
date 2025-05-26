@@ -566,7 +566,7 @@ async function callOpenAI(prompt) {
       max_tokens: 4000,
       response_format: { type: "json_object" },
       top_p: 0.95, // Add top_p for better control of response quality
-      timeout: 60, // Add timeout to prevent hanging connections
+      // Note: timeout is set in the request options, not in the OpenAI API parameters
     });
 
     // Set up request options with efficient headers
