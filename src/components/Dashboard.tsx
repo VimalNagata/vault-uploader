@@ -164,8 +164,83 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
     personaCounts?: number;
     personaTypes?: string[];
   }
+  
+  // Interface for User Master Profile
+  interface UserMasterProfile {
+    lastUpdated: string;
+    fileCount: number;
+    userProfile: {
+      demographics?: {
+        name?: string;
+        age?: number;
+        gender?: string;
+        currentLocation?: string;
+        previousLocations?: string[];
+        birthDate?: string;
+        maritalStatus?: string;
+        familyMembers?: {
+          spouse?: string;
+          childrenCount?: number;
+          children?: string[];
+        };
+      };
+      financialMetrics?: {
+        incomeRange?: string;
+        savingsEstimate?: string;
+        majorAssets?: string[];
+        investmentTypes?: string[];
+        creditScoreRange?: string;
+        subscriptionsCount?: number;
+        averageMonthlySpending?: string;
+      };
+      professionalMetrics?: {
+        currentEmployer?: string;
+        currentTitle?: string;
+        yearsExperience?: number;
+        employerCount?: number;
+        highestEducation?: string;
+        skills?: string[];
+      };
+      socialMetrics?: {
+        connectionsCount?: number;
+        platformsUsed?: string[];
+        primaryPlatform?: string;
+        activityFrequency?: string;
+      };
+      healthMetrics?: {
+        conditions?: string[];
+        height?: string;
+        weight?: string;
+        exerciseFrequency?: string;
+      };
+      travelMetrics?: {
+        tripsCount?: number;
+        frequentDestinations?: string[];
+        accommodationPreference?: string;
+      };
+      technologyMetrics?: {
+        devicesOwned?: string[];
+        operatingSystems?: string[];
+        softwareUsed?: string[];
+      };
+      interests?: string[];
+    };
+    categories?: Record<string, {
+      relevance: number;
+      count: number;
+      dataPoints: string[];
+    }>;
+    insights?: string[];
+    sourceFiles?: Array<{
+      fileName: string;
+      fileType: string;
+      processedAt: string;
+      categories: string[];
+    }>;
+  }
 
   const [metrics, setMetrics] = useState<EnhancedMetrics | null>(null);
+  const [userMasterProfile, setUserMasterProfile] = useState<UserMasterProfile | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -326,14 +401,24 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
         files,
         categorized = { files: {}, categoryTypes: [] },
         personas = null,
+        userMasterProfile = null,
       } = userData;
 
       console.log(
         `Retrieved metrics: ${metrics.fileCount} files, ${metrics.totalSizeFormatted} total size`
       );
       console.log(
-        `Data includes categorized: ${!!userData.categorized}, personas: ${!!userData.personas}`
+        `Data includes categorized: ${!!userData.categorized}, personas: ${!!userData.personas}, masterProfile: ${!!userData.userMasterProfile}`
       );
+      
+      // Set user master profile if available
+      if (userData.userMasterProfile) {
+        console.log("Setting user master profile from API response");
+        setUserMasterProfile(userData.userMasterProfile);
+      } else {
+        console.log("No user master profile available in API response");
+        setUserMasterProfile(null);
+      }
 
       // Save metrics for use in the UI
       // Extract or calculate counts for dashboard sections
@@ -689,6 +774,434 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
       </div>
     );
   };
+  
+  // User Master Profile Card Component
+  const UserMasterProfileCard: React.FC<{ profile: UserMasterProfile }> = ({ profile }) => {
+    // Helper function to render a metric if it exists
+    const renderMetric = (label: string, value: any, icon?: string) => {
+      if (value === undefined || value === null) return null;
+      
+      return (
+        <div className="profile-metric">
+          {icon && <span className="metric-icon">{icon}</span>}
+          <span className="metric-label">{label}:</span>
+          <span className="metric-value">
+            {Array.isArray(value) 
+              ? value.slice(0, 3).join(', ') + (value.length > 3 ? '...' : '')
+              : value.toString()}
+          </span>
+        </div>
+      );
+    };
+
+    // Helper function to render financial investments detail
+    const renderFinancialDetails = (financialMetrics: Record<string, any>) => {
+      if (!financialMetrics) return null;
+      
+      const { 
+        incomeRange, 
+        savingsEstimate, 
+        majorAssets, 
+        investmentTypes, 
+        creditScoreRange,
+        subscriptionsCount, 
+        averageMonthlySpending,
+        // Look for these specific investment insights that might be present
+        investmentPortfolio,
+        investmentValues,
+        stockHoldings,
+        retirementAccounts,
+        realEstateInvestments,
+        cryptoHoldings,
+        netWorth,
+        mortgageDetails,
+        debtOverview
+      } = financialMetrics;
+
+      return (
+        <div className="profile-section financial-details">
+          <h4 className="section-title">
+            <span className="section-icon">💰</span>
+            Financial Profile
+          </h4>
+
+          <div className="financial-summary">
+            {renderMetric("Income Range", incomeRange)}
+            {renderMetric("Net Worth", netWorth)}
+            {renderMetric("Savings", savingsEstimate)}
+            {renderMetric("Credit Score", creditScoreRange)}
+            {renderMetric("Monthly Spending", averageMonthlySpending)}
+            {renderMetric("Subscriptions", subscriptionsCount)}
+          </div>
+
+          {/* Investments Section - Show only if we have investment data */}
+          {(investmentTypes?.length > 0 || investmentPortfolio || stockHoldings || retirementAccounts || cryptoHoldings) && (
+            <div className="financial-investments">
+              <h5 className="subsection-title">Investment Portfolio</h5>
+              
+              {investmentPortfolio && (
+                <div className="investment-details">
+                  {typeof investmentPortfolio === 'string' 
+                    ? renderMetric("Overview", investmentPortfolio)
+                    : Object.entries(investmentPortfolio).map(([key, value], idx) => (
+                        <div key={idx} className="investment-item">
+                          {renderMetric(
+                            key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+                            value
+                          )}
+                        </div>
+                      ))
+                  }
+                </div>
+              )}
+
+              {/* Stock Holdings */}
+              {stockHoldings && (
+                <div className="investment-category">
+                  <h6 className="investment-category-title">Stocks</h6>
+                  {typeof stockHoldings === 'string' 
+                    ? <p>{stockHoldings}</p>
+                    : Array.isArray(stockHoldings)
+                      ? <ul className="investment-list">
+                          {stockHoldings.slice(0, 5).map((stock, idx) => (
+                            <li key={idx}>{stock}</li>
+                          ))}
+                          {stockHoldings.length > 5 && <li>...and {stockHoldings.length - 5} more</li>}
+                        </ul>
+                      : Object.entries(stockHoldings).map(([stock, details], idx) => (
+                          <div key={idx} className="investment-item">
+                            <strong>{stock}:</strong> {
+                              typeof details === 'object' 
+                                ? Object.entries(details).map(([k, v]) => `${k}: ${v}`).join(', ')
+                                : details
+                            }
+                          </div>
+                        ))
+                  }
+                </div>
+              )}
+
+              {/* Retirement Accounts */}
+              {retirementAccounts && (
+                <div className="investment-category">
+                  <h6 className="investment-category-title">Retirement</h6>
+                  {typeof retirementAccounts === 'string' 
+                    ? <p>{retirementAccounts}</p>
+                    : Array.isArray(retirementAccounts)
+                      ? <ul className="investment-list">
+                          {retirementAccounts.map((account, idx) => (
+                            <li key={idx}>{account}</li>
+                          ))}
+                        </ul>
+                      : Object.entries(retirementAccounts).map(([account, details], idx) => (
+                          <div key={idx} className="investment-item">
+                            <strong>{account}:</strong> {
+                              typeof details === 'object' 
+                                ? Object.entries(details).map(([k, v]) => `${k}: ${v}`).join(', ')
+                                : details
+                            }
+                          </div>
+                        ))
+                  }
+                </div>
+              )}
+
+              {/* Crypto Holdings */}
+              {cryptoHoldings && (
+                <div className="investment-category">
+                  <h6 className="investment-category-title">Cryptocurrency</h6>
+                  {typeof cryptoHoldings === 'string' 
+                    ? <p>{cryptoHoldings}</p>
+                    : Array.isArray(cryptoHoldings)
+                      ? <ul className="investment-list">
+                          {cryptoHoldings.map((crypto, idx) => (
+                            <li key={idx}>{crypto}</li>
+                          ))}
+                        </ul>
+                      : Object.entries(cryptoHoldings).map(([crypto, details], idx) => (
+                          <div key={idx} className="investment-item">
+                            <strong>{crypto}:</strong> {
+                              typeof details === 'object' 
+                                ? Object.entries(details).map(([k, v]) => `${k}: ${v}`).join(', ')
+                                : details
+                            }
+                          </div>
+                        ))
+                  }
+                </div>
+              )}
+
+              {/* Real Estate Investments */}
+              {realEstateInvestments && (
+                <div className="investment-category">
+                  <h6 className="investment-category-title">Real Estate</h6>
+                  {typeof realEstateInvestments === 'string' 
+                    ? <p>{realEstateInvestments}</p>
+                    : Array.isArray(realEstateInvestments)
+                      ? <ul className="investment-list">
+                          {realEstateInvestments.map((property, idx) => (
+                            <li key={idx}>{property}</li>
+                          ))}
+                        </ul>
+                      : Object.entries(realEstateInvestments).map(([property, details], idx) => (
+                          <div key={idx} className="investment-item">
+                            <strong>{property}:</strong> {
+                              typeof details === 'object' 
+                                ? Object.entries(details).map(([k, v]) => `${k}: ${v}`).join(', ')
+                                : details
+                            }
+                          </div>
+                        ))
+                  }
+                </div>
+              )}
+
+              {/* Investment Values if present */}
+              {investmentValues && (
+                <div className="investment-category">
+                  <h6 className="investment-category-title">Investment Values</h6>
+                  {typeof investmentValues === 'string' 
+                    ? <p>{investmentValues}</p>
+                    : Array.isArray(investmentValues)
+                      ? <ul className="investment-list">
+                          {investmentValues.map((value, idx) => (
+                            <li key={idx}>{value}</li>
+                          ))}
+                        </ul>
+                      : Object.entries(investmentValues).map(([category, value], idx) => (
+                          <div key={idx} className="investment-item">
+                            <strong>{category}:</strong> {value}
+                          </div>
+                        ))
+                  }
+                </div>
+              )}
+
+              {/* Investment Types as a fallback */}
+              {investmentTypes && investmentTypes.length > 0 && (
+                <div className="investment-types">
+                  <h6 className="investment-category-title">Investment Types</h6>
+                  <div className="tag-list">
+                    {investmentTypes.map((type, idx) => (
+                      <span key={idx} className="investment-tag">{type}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Assets Section */}
+          {majorAssets && majorAssets.length > 0 && (
+            <div className="assets-section">
+              <h5 className="subsection-title">Major Assets</h5>
+              <ul className="assets-list">
+                {majorAssets.map((asset, idx) => (
+                  <li key={idx}>{asset}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Debt Overview */}
+          {(debtOverview || mortgageDetails) && (
+            <div className="debt-section">
+              <h5 className="subsection-title">Debt Overview</h5>
+              
+              {debtOverview && (
+                <div className="debt-overview">
+                  {typeof debtOverview === 'string' 
+                    ? <p>{debtOverview}</p>
+                    : Object.entries(debtOverview).map(([type, details], idx) => (
+                        <div key={idx} className="debt-item">
+                          <strong>{type}:</strong> {
+                            typeof details === 'object' 
+                              ? Object.entries(details).map(([k, v]) => `${k}: ${v}`).join(', ')
+                              : details
+                          }
+                        </div>
+                      ))
+                  }
+                </div>
+              )}
+
+              {mortgageDetails && (
+                <div className="mortgage-details">
+                  <h6 className="debt-category-title">Mortgage</h6>
+                  {typeof mortgageDetails === 'string' 
+                    ? <p>{mortgageDetails}</p>
+                    : Object.entries(mortgageDetails).map(([key, value], idx) => (
+                        <div key={idx} className="debt-item">
+                          <strong>{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</strong> {value}
+                        </div>
+                      ))
+                  }
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    };
+    
+    // Helper function to render a metrics section if it has data
+    const renderMetricsSection = (
+      title: string, 
+      metrics: Record<string, any> | undefined, 
+      icon: string
+    ) => {
+      if (!metrics || Object.keys(metrics).filter(k => metrics[k] !== undefined).length === 0) {
+        return null;
+      }
+      
+      // Special handling for financial metrics to show detailed view
+      if (title === "Financial") {
+        return renderFinancialDetails(metrics);
+      }
+      
+      return (
+        <div className="profile-section">
+          <h4 className="section-title">
+            <span className="section-icon">{icon}</span>
+            {title}
+          </h4>
+          <div className="section-metrics">
+            {Object.entries(metrics).map(([key, value], idx) => {
+              if (value === undefined) return null;
+              // Format the key with proper capitalization and spacing
+              const formattedKey = key
+                .replace(/([A-Z])/g, ' $1')
+                .replace(/^./, str => str.toUpperCase());
+              return (
+                <div key={idx} className="profile-metric">
+                  <span className="metric-label">{formattedKey}:</span>
+                  <span className="metric-value">
+                    {Array.isArray(value) 
+                      ? value.slice(0, 3).join(', ') + (value.length > 3 ? '...' : '')
+                      : typeof value === 'object' && value !== null
+                        ? JSON.stringify(value).slice(0, 50) + (JSON.stringify(value).length > 50 ? '...' : '')
+                        : value.toString()}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    };
+    
+    // Check if there are insights in the profile
+    const hasInsights = profile.insights && profile.insights.length > 0;
+    
+    return (
+      <div className="user-master-profile-card">
+        <h3 className="profile-title">User Profile</h3>
+        <div className="profile-updated">
+          Last updated: {new Date(profile.lastUpdated).toLocaleDateString()}
+        </div>
+        
+        {/* If there are insights, show them at the top */}
+        {hasInsights && (
+          <div className="profile-section insights-section">
+            <h4 className="section-title">
+              <span className="section-icon">💡</span>
+              Key Insights
+            </h4>
+            <ul className="insights-list">
+              {profile.insights.slice(0, 5).map((insight, index) => (
+                <li key={index} className="insight-item">{insight}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        
+        {/* Demographics Section */}
+        {profile.userProfile.demographics && (
+          <div className="profile-section">
+            <h4 className="section-title">
+              <span className="section-icon">👤</span>
+              Demographics
+            </h4>
+            <div className="section-metrics">
+              {renderMetric("Name", profile.userProfile.demographics.name)}
+              {renderMetric("Age", profile.userProfile.demographics.age)}
+              {renderMetric("Gender", profile.userProfile.demographics.gender)}
+              {renderMetric("Location", profile.userProfile.demographics.currentLocation)}
+              {renderMetric("Marital Status", profile.userProfile.demographics.maritalStatus)}
+              {profile.userProfile.demographics.familyMembers?.spouse && 
+                renderMetric("Spouse", profile.userProfile.demographics.familyMembers.spouse)}
+              {profile.userProfile.demographics.familyMembers?.childrenCount && 
+                renderMetric("Children", profile.userProfile.demographics.familyMembers.childrenCount)}
+              {profile.userProfile.demographics.previousLocations && profile.userProfile.demographics.previousLocations.length > 0 &&
+                renderMetric("Previous Locations", profile.userProfile.demographics.previousLocations)}
+            </div>
+          </div>
+        )}
+        
+        {/* Financial Metrics Section - Enhanced display */}
+        {renderMetricsSection(
+          "Financial", 
+          profile.userProfile.financialMetrics, 
+          "💰"
+        )}
+        
+        {/* Professional Metrics Section */}
+        {renderMetricsSection(
+          "Professional", 
+          profile.userProfile.professionalMetrics, 
+          "💼"
+        )}
+        
+        {/* Social Metrics Section */}
+        {renderMetricsSection(
+          "Social", 
+          profile.userProfile.socialMetrics, 
+          "👥"
+        )}
+        
+        {/* Health Metrics Section */}
+        {renderMetricsSection(
+          "Health", 
+          profile.userProfile.healthMetrics, 
+          "🏥"
+        )}
+        
+        {/* Travel Metrics Section */}
+        {renderMetricsSection(
+          "Travel", 
+          profile.userProfile.travelMetrics, 
+          "✈️"
+        )}
+        
+        {/* Technology Metrics Section */}
+        {renderMetricsSection(
+          "Technology", 
+          profile.userProfile.technologyMetrics, 
+          "💻"
+        )}
+        
+        {/* Interests Section */}
+        {profile.userProfile.interests && profile.userProfile.interests.length > 0 && (
+          <div className="profile-section">
+            <h4 className="section-title">
+              <span className="section-icon">⭐</span>
+              Interests
+            </h4>
+            <div className="interests-list">
+              {profile.userProfile.interests.map((interest, index) => (
+                <span key={index} className="interest-tag">{interest}</span>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* Data Sources */}
+        <div className="profile-footer">
+          <span>Based on data from {profile.fileCount} files</span>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="dashboard-container">
@@ -751,316 +1264,337 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
             </div>
           )}
 
-          <div className="dashboard-sections">
-            {/* Stage 1: Your Data Upload Section */}
-            <div className="dashboard-section">
-              <div className="section-header">
-                <h3>Your Data</h3>
-                <button
-                  className="secondary-button"
-                  onClick={() => onNavigate("rawdata")}
-                >
-                  View All Files
-                </button>
-              </div>
-              <div className="raw-data-container">
-                <div className="raw-data-left">
-                  {/* Metrics */}
-                  <div className="metrics-container">
-                    <div className="summary-stats">
-                      <div className="summary-stat">
-                        <span className="stat-value">
-                          {metrics ? metrics.fileCount : rawFiles.length || 0}
-                        </span>
-                        <span className="stat-label">Files Uploaded</span>
-                      </div>
-                      <div className="stat-divider"></div>
-                      <div className="summary-stat">
-                        <span className="stat-value">{totalStorage}</span>
-                        <span className="stat-label">Total Storage</span>
-                      </div>
-                      <div className="stat-divider"></div>
+          {/* Add a new layout div to contain the main sections and the right sidebar */}
+          <div className="dashboard-layout">
+            {/* Left side: Main sections */}
+            <div className="dashboard-main">
+              <div className="dashboard-sections">
+                {/* Stage 1: Your Data Upload Section */}
+                <div className="dashboard-section">
+                  <div className="section-header">
+                    <h3>Your Data</h3>
+                    <button
+                      className="secondary-button"
+                      onClick={() => onNavigate("rawdata")}
+                    >
+                      View All Files
+                    </button>
+                  </div>
+                  <div className="raw-data-container">
+                    <div className="raw-data-left">
+                      {/* Metrics */}
+                      <div className="metrics-container">
+                        <div className="summary-stats">
+                          <div className="summary-stat">
+                            <span className="stat-value">
+                              {metrics ? metrics.fileCount : rawFiles.length || 0}
+                            </span>
+                            <span className="stat-label">Files Uploaded</span>
+                          </div>
+                          <div className="stat-divider"></div>
+                          <div className="summary-stat">
+                            <span className="stat-value">{totalStorage}</span>
+                            <span className="stat-label">Total Storage</span>
+                          </div>
+                          <div className="stat-divider"></div>
 
-                      {/* File Explorer removed from here to avoid showing in main dashboard */}
-                      {/* Dropzone Upload Area */}
-                      <div
-                        className="dropzone-area"
-                        onClick={() =>
-                          document.getElementById("file-upload-input")?.click()
-                        }
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const el = e.currentTarget;
-                          el.classList.add("active");
-                        }}
-                        onDragLeave={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const el = e.currentTarget;
-                          el.classList.remove("active");
-                        }}
-                        onDrop={async (e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const el = e.currentTarget;
-                          el.classList.remove("active");
+                          {/* File Explorer removed from here to avoid showing in main dashboard */}
+                          {/* Dropzone Upload Area */}
+                          <div
+                            className="dropzone-area"
+                            onClick={() =>
+                              document.getElementById("file-upload-input")?.click()
+                            }
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const el = e.currentTarget;
+                              el.classList.add("active");
+                            }}
+                            onDragLeave={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const el = e.currentTarget;
+                              el.classList.remove("active");
+                            }}
+                            onDrop={async (e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const el = e.currentTarget;
+                              el.classList.remove("active");
 
-                          // Handle files from drop event
-                          if (e.dataTransfer.items) {
-                            setIsUploading(true);
-                            setUploadProgress(0);
+                              // Handle files from drop event
+                              if (e.dataTransfer.items) {
+                                setIsUploading(true);
+                                setUploadProgress(0);
 
-                            try {
-                              const fileList: File[] = [];
-                              const entries: any[] = [];
+                                try {
+                                  const fileList: File[] = [];
+                                  const entries: any[] = [];
 
-                              // Collect all the dropped items
-                              for (
-                                let i = 0;
-                                i < e.dataTransfer.items.length;
-                                i++
-                              ) {
-                                const item = e.dataTransfer.items[i];
-                                if (item.kind === "file") {
-                                  const entry = item.webkitGetAsEntry
-                                    ? item.webkitGetAsEntry()
-                                    : null;
+                                  // Collect all the dropped items
+                                  for (
+                                    let i = 0;
+                                    i < e.dataTransfer.items.length;
+                                    i++
+                                  ) {
+                                    const item = e.dataTransfer.items[i];
+                                    if (item.kind === "file") {
+                                      const entry = item.webkitGetAsEntry
+                                        ? item.webkitGetAsEntry()
+                                        : null;
 
-                                  if (entry) {
-                                    entries.push(entry);
-                                  } else {
-                                    // Fallback for browsers that don't support webkitGetAsEntry
-                                    const file = item.getAsFile();
-                                    if (file) fileList.push(file);
+                                      if (entry) {
+                                        entries.push(entry);
+                                      } else {
+                                        // Fallback for browsers that don't support webkitGetAsEntry
+                                        const file = item.getAsFile();
+                                        if (file) fileList.push(file);
+                                      }
+                                    }
                                   }
+
+                                  // Process entries that might be files or directories
+                                  if (entries.length > 0) {
+                                    const processedFiles = await traverseFileTree(
+                                      entries
+                                    );
+                                    fileList.push(...processedFiles);
+                                  }
+
+                                  console.log(
+                                    `Found ${fileList.length} files to upload`
+                                  );
+
+                                  if (fileList.length > 0) {
+                                    handleFileUpload(fileList);
+                                  } else {
+                                    setIsUploading(false);
+                                  }
+                                } catch (error) {
+                                  console.error(
+                                    "Error processing dropped items:",
+                                    error
+                                  );
+                                  setIsUploading(false);
                                 }
                               }
-
-                              // Process entries that might be files or directories
-                              if (entries.length > 0) {
-                                const processedFiles = await traverseFileTree(
-                                  entries
-                                );
-                                fileList.push(...processedFiles);
-                              }
-
-                              console.log(
-                                `Found ${fileList.length} files to upload`
-                              );
-
-                              if (fileList.length > 0) {
-                                handleFileUpload(fileList);
-                              } else {
-                                setIsUploading(false);
-                              }
-                            } catch (error) {
-                              console.error(
-                                "Error processing dropped items:",
-                                error
-                              );
-                              setIsUploading(false);
-                            }
-                          }
-                        }}
-                      >
-                        <div className="upload-icon"></div>
-                        <div className="dropzone-text">
-                          <h4>Drag & drop files or folders here</h4>
-                          <p>
-                            Upload CCPA data to generate insights for your
-                            Digital DNA
-                          </p>
+                            }}
+                          >
+                            <div className="upload-icon"></div>
+                            <div className="dropzone-text">
+                              <h4>Drag & drop files or folders here</h4>
+                              <p>
+                                Upload CCPA data to generate insights for your
+                                Digital DNA
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  <input
+                    type="file"
+                    id="file-upload-input"
+                    multiple
+                    {...({ webkitdirectory: "true", directory: "" } as any)}
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      if (e.target.files?.length) {
+                        const fileList = Array.from(e.target.files);
+
+                        // Process files and flatten folder structure
+                        const processedFiles = fileList.map((file) => {
+                          // For input[webkitdirectory], files have a webkitRelativePath property
+                          const relativePath = (file as any).webkitRelativePath;
+
+                          if (relativePath) {
+                            // Get all directory parts except the filename
+                            const pathParts = relativePath.split("/");
+                            const fileName = pathParts.pop(); // Remove filename
+
+                            if (pathParts.length > 0) {
+                              // Create flattened filename with directory structure using dot delimiter
+                              const flatName = pathParts.join(".") + "." + fileName;
+
+                              // Create new file with flattened name
+                              return new File([file], flatName, {
+                                type: file.type,
+                                lastModified: file.lastModified,
+                              });
+                            }
+                          }
+
+                          // Return original file if no path processing needed
+                          return file;
+                        });
+
+                        handleFileUpload(processedFiles);
+                      }
+                    }}
+                  />
+                </div>
+
+                {/* Stage 2: Analyzed Data Section */}
+                <div className="dashboard-section">
+                  <div className="section-header">
+                    <h3>
+                      Analyzed Data (
+                      {metrics?.categoryCounts || fileCategories.length})
+                    </h3>
+                  </div>
+
+                  <div className="category-cards">
+                    {fileCategories.map((category, index) => (
+                      <div className="category-card" key={index}>
+                        <CategoryIcon type={category.icon} />
+                        <div className="category-info">
+                          <h4>{category.name}</h4>
+                          {(category.count !== null || category.size !== null) && (
+                            <div className="category-meta">
+                              {category.count !== null && (
+                                <>
+                                  <span>{category.count} files</span>
+                                  {category.size !== null && (
+                                    <span className="dot-separator">•</span>
+                                  )}
+                                </>
+                              )}
+                              {category.size !== null && (
+                                <span>{category.size}</span>
+                              )}
+                            </div>
+                          )}
+                          <div className="category-updated">
+                            Updated {category.lastUpdated}
+                          </div>
+                          <div className="category-summary">
+                            {getCategorySummary(category.name.toLowerCase())}
+                          </div>
+                          <button
+                            className="text-button view-details-link"
+                            onClick={() =>
+                              onNavigate(`category/${category.name.toLowerCase()}`)
+                            }
+                          >
+                            View Details →
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Stage 3: Insights Section */}
+                <div className="dashboard-section">
+                  <div className="section-header">
+                    <h3>Insights ({metrics?.personaCounts || personas.length})</h3>
+                  </div>
+
+                  <div className="persona-cards">
+                    {personas.map((persona) => (
+                      <div className="persona-card" key={persona.id}>
+                        <div className="persona-header">
+                          <h4>{persona.name}</h4>
+                          <span className="persona-type">{persona.type}</span>
+                        </div>
+
+                        {/* Progress bar */}
+                        <ProgressBar
+                          percentage={persona.completeness}
+                          type={persona.type}
+                        />
+
+                        {/* Summary (if available) */}
+                        {persona.summary && (
+                          <div className="persona-summary">
+                            <p>{persona.summary}</p>
+                          </div>
+                        )}
+
+                        {/* Insights (if available) */}
+                        {persona.insights && persona.insights.length > 0 && (
+                          <div className="persona-insights">
+                            <h5>Key Insights:</h5>
+                            <ul>
+                              {persona.insights.slice(0, 3).map((insight, idx) => (
+                                <li key={idx}>{insight}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Traits (if available) */}
+                        {persona.traits &&
+                          Object.keys(persona.traits).length > 0 && (
+                            <div className="persona-traits">
+                              <h5>Traits:</h5>
+                              <div className="traits-list">
+                                {Object.entries(persona.traits)
+                                  .slice(0, 3)
+                                  .map(([key, value]) => (
+                                    <div className="trait-item" key={key}>
+                                      <span className="trait-key">
+                                        {key.charAt(0).toUpperCase() + key.slice(1)}
+                                        :
+                                      </span>
+                                      <span className="trait-value">
+                                        {Array.isArray(value)
+                                          ? value.slice(0, 2).join(", ") +
+                                            (value.length > 2 ? "..." : "")
+                                          : typeof value === "object" &&
+                                            value !== null
+                                          ? Object.entries(value)
+                                              .slice(0, 2)
+                                              .map(([k, v]) => `${k}: ${v}`)
+                                              .join(", ") +
+                                            (Object.keys(value).length > 2
+                                              ? "..."
+                                              : "")
+                                          : String(value)}
+                                      </span>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+
+                        {/* Source data (if available) */}
+                        {persona.sources && persona.sources.length > 0 && (
+                          <div className="persona-sources">
+                            <span>
+                              Based on {persona.sources.length} source
+                              {persona.sources.length !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="persona-footer">
+                          <span>Updated {persona.lastUpdated}</span>
+                          <div className="persona-status">Auto-updating</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
-
-              <input
-                type="file"
-                id="file-upload-input"
-                multiple
-                {...({ webkitdirectory: "true", directory: "" } as any)}
-                style={{ display: "none" }}
-                onChange={(e) => {
-                  if (e.target.files?.length) {
-                    const fileList = Array.from(e.target.files);
-
-                    // Process files and flatten folder structure
-                    const processedFiles = fileList.map((file) => {
-                      // For input[webkitdirectory], files have a webkitRelativePath property
-                      const relativePath = (file as any).webkitRelativePath;
-
-                      if (relativePath) {
-                        // Get all directory parts except the filename
-                        const pathParts = relativePath.split("/");
-                        const fileName = pathParts.pop(); // Remove filename
-
-                        if (pathParts.length > 0) {
-                          // Create flattened filename with directory structure using dot delimiter
-                          const flatName = pathParts.join(".") + "." + fileName;
-
-                          // Create new file with flattened name
-                          return new File([file], flatName, {
-                            type: file.type,
-                            lastModified: file.lastModified,
-                          });
-                        }
-                      }
-
-                      // Return original file if no path processing needed
-                      return file;
-                    });
-
-                    handleFileUpload(processedFiles);
-                  }
-                }}
-              />
             </div>
-
-            {/* Stage 2: Analyzed Data Section */}
-            <div className="dashboard-section">
-              <div className="section-header">
-                <h3>
-                  Analyzed Data (
-                  {metrics?.categoryCounts || fileCategories.length})
-                </h3>
-              </div>
-
-              <div className="category-cards">
-                {fileCategories.map((category, index) => (
-                  <div className="category-card" key={index}>
-                    <CategoryIcon type={category.icon} />
-                    <div className="category-info">
-                      <h4>{category.name}</h4>
-                      {(category.count !== null || category.size !== null) && (
-                        <div className="category-meta">
-                          {category.count !== null && (
-                            <>
-                              <span>{category.count} files</span>
-                              {category.size !== null && (
-                                <span className="dot-separator">•</span>
-                              )}
-                            </>
-                          )}
-                          {category.size !== null && (
-                            <span>{category.size}</span>
-                          )}
-                        </div>
-                      )}
-                      <div className="category-updated">
-                        Updated {category.lastUpdated}
-                      </div>
-                      <div className="category-summary">
-                        {getCategorySummary(category.name.toLowerCase())}
-                      </div>
-                      <button
-                        className="text-button view-details-link"
-                        onClick={() =>
-                          onNavigate(`category/${category.name.toLowerCase()}`)
-                        }
-                      >
-                        View Details →
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Stage 3: Insights Section */}
-            <div className="dashboard-section">
-              <div className="section-header">
-                <h3>Insights ({metrics?.personaCounts || personas.length})</h3>
-              </div>
-
-              <div className="persona-cards">
-                {personas.map((persona) => (
-                  <div className="persona-card" key={persona.id}>
-                    <div className="persona-header">
-                      <h4>{persona.name}</h4>
-                      <span className="persona-type">{persona.type}</span>
-                    </div>
-
-                    {/* Progress bar */}
-                    <ProgressBar
-                      percentage={persona.completeness}
-                      type={persona.type}
-                    />
-
-                    {/* Summary (if available) */}
-                    {persona.summary && (
-                      <div className="persona-summary">
-                        <p>{persona.summary}</p>
-                      </div>
-                    )}
-
-                    {/* Insights (if available) */}
-                    {persona.insights && persona.insights.length > 0 && (
-                      <div className="persona-insights">
-                        <h5>Key Insights:</h5>
-                        <ul>
-                          {persona.insights.slice(0, 3).map((insight, idx) => (
-                            <li key={idx}>{insight}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* Traits (if available) */}
-                    {persona.traits &&
-                      Object.keys(persona.traits).length > 0 && (
-                        <div className="persona-traits">
-                          <h5>Traits:</h5>
-                          <div className="traits-list">
-                            {Object.entries(persona.traits)
-                              .slice(0, 3)
-                              .map(([key, value]) => (
-                                <div className="trait-item" key={key}>
-                                  <span className="trait-key">
-                                    {key.charAt(0).toUpperCase() + key.slice(1)}
-                                    :
-                                  </span>
-                                  <span className="trait-value">
-                                    {Array.isArray(value)
-                                      ? value.slice(0, 2).join(", ") +
-                                        (value.length > 2 ? "..." : "")
-                                      : typeof value === "object" &&
-                                        value !== null
-                                      ? Object.entries(value)
-                                          .slice(0, 2)
-                                          .map(([k, v]) => `${k}: ${v}`)
-                                          .join(", ") +
-                                        (Object.keys(value).length > 2
-                                          ? "..."
-                                          : "")
-                                      : String(value)}
-                                  </span>
-                                </div>
-                              ))}
-                          </div>
-                        </div>
-                      )}
-
-                    {/* Source data (if available) */}
-                    {persona.sources && persona.sources.length > 0 && (
-                      <div className="persona-sources">
-                        <span>
-                          Based on {persona.sources.length} source
-                          {persona.sources.length !== 1 ? "s" : ""}
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="persona-footer">
-                      <span>Updated {persona.lastUpdated}</span>
-                      <div className="persona-status">Auto-updating</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            
+            {/* Right side: User Master Profile */}
+            <div className="dashboard-sidebar">
+              {userMasterProfile ? (
+                <UserMasterProfileCard profile={userMasterProfile} />
+              ) : (
+                <div className="user-master-profile-card empty-profile">
+                  <h3 className="profile-title">User Profile</h3>
+                  <p className="empty-profile-message">
+                    Your profile is being built as your data is processed.
+                    Upload more data to enhance your profile.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </>
