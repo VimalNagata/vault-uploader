@@ -340,42 +340,18 @@ deploy_lambda() {
     
     echo "Creating Lambda function: $function_name..."
     
-    # Check if we should use S3 for deployment
-    if [[ "$S3_BUCKET_NAME" != "" && $(stat -f%z "dist/$function_name.zip") -gt 10000000 ]]; then
-      echo "Using S3 for deployment (large file)..."
-      S3_KEY="lambda-functions/$function_name.zip"
-      
-      # Upload to S3
-      aws s3 cp "dist/$function_name.zip" "s3://$S3_BUCKET_NAME/$S3_KEY" --region "$REGION"
-      
-      # Create from S3
-      CREATE_RESULT=$(aws lambda create-function \
-        --function-name "$function_name" \
-        --runtime nodejs18.x \
-        --handler "$function_name.handler" \
-        --role "$role_arn" \
-        --code "S3Bucket=$S3_BUCKET_NAME,S3Key=$S3_KEY" \
-        --timeout 60 \
-        --memory-size 256 \
-        --environment "$env_vars" \
-        --region "$REGION" \
-        --query 'FunctionArn' \
-        --output text)
-    else
-      # Create directly with ZIP file
-      CREATE_RESULT=$(aws lambda create-function \
-        --function-name "$function_name" \
-        --runtime nodejs18.x \
-        --handler "$function_name.handler" \
-        --role "$role_arn" \
-        --zip-file "fileb://dist/$function_name.zip" \
-        --timeout 60 \
-        --memory-size 256 \
-        --environment "$env_vars" \
-        --region "$REGION" \
-        --query 'FunctionArn' \
-        --output text)
-    fi
+    CREATE_RESULT=$(aws lambda create-function \
+      --function-name "$function_name" \
+      --runtime nodejs18.x \
+      --handler "$function_name.handler" \
+      --role "$role_arn" \
+      --zip-file "fileb://dist/$function_name.zip" \
+      --timeout 60 \
+      --memory-size 256 \
+      --environment "$env_vars" \
+      --region "$REGION" \
+      --query 'FunctionArn' \
+      --output text)
     
     echo "✅ Lambda function $function_name created successfully!"
     echo "ARN: $CREATE_RESULT"
@@ -391,32 +367,12 @@ deploy_lambda() {
     
     # Update function code
     echo "Uploading code to AWS Lambda..."
-    
-    # Check if we should use S3 for deployment
-    if [[ "$S3_BUCKET_NAME" != "" && $(stat -f%z "dist/$function_name.zip") -gt 10000000 ]]; then
-      echo "Using S3 for deployment (large file)..."
-      S3_KEY="lambda-functions/$function_name.zip"
-      
-      # Upload to S3
-      aws s3 cp "dist/$function_name.zip" "s3://$S3_BUCKET_NAME/$S3_KEY" --region "$REGION"
-      
-      # Update from S3
-      UPDATE_RESULT=$(aws lambda update-function-code \
-        --function-name "$function_name" \
-        --s3-bucket "$S3_BUCKET_NAME" \
-        --s3-key "$S3_KEY" \
-        --region "$REGION" \
-        --query 'LastModified' \
-        --output text)
-    else
-      # Update directly with ZIP file
-      UPDATE_RESULT=$(aws lambda update-function-code \
-        --function-name "$function_name" \
-        --zip-file "fileb://dist/$function_name.zip" \
-        --region "$REGION" \
-        --query 'LastModified' \
-        --output text)
-    fi
+    UPDATE_RESULT=$(aws lambda update-function-code \
+      --function-name "$function_name" \
+      --zip-file "fileb://dist/$function_name.zip" \
+      --region "$REGION" \
+      --query 'LastModified' \
+      --output text)
     
     # Update configuration
     echo "Updating Lambda configuration..."
