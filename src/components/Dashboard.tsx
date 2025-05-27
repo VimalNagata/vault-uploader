@@ -788,7 +788,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
           <span className="metric-value">
             {Array.isArray(value) 
               ? value.slice(0, 3).join(', ') + (value.length > 3 ? '...' : '')
-              : value.toString()}
+              : String(value)}
           </span>
         </div>
       );
@@ -1075,7 +1075,9 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onNavigate }) => {
                       ? value.slice(0, 3).join(', ') + (value.length > 3 ? '...' : '')
                       : typeof value === 'object' && value !== null
                         ? JSON.stringify(value).slice(0, 50) + (JSON.stringify(value).length > 50 ? '...' : '')
-                        : value.toString()}
+                        : value === null || value === undefined 
+                          ? ''
+                          : String(value)}
                   </span>
                 </div>
               );
