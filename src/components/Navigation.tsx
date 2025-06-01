@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Navigation.css';
 
 interface UserInfo {
@@ -19,6 +19,9 @@ interface NavigationProps {
   isAuthenticated: boolean;
 }
 
+// List of admin email addresses
+const ADMIN_EMAILS = ["patavardhan@gmail.com", "sharadnyc@gmail.com"];
+
 const Navigation: React.FC<NavigationProps> = ({ 
   username, 
   userInfo,
@@ -28,7 +31,17 @@ const Navigation: React.FC<NavigationProps> = ({
   isAuthenticated
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const displayName = userInfo?.name || userInfo?.given_name || username;
+  
+  // Check if current user is an admin
+  useEffect(() => {
+    if (userInfo && userInfo.email) {
+      setIsAdmin(ADMIN_EMAILS.includes(userInfo.email));
+    } else {
+      setIsAdmin(false);
+    }
+  }, [userInfo]);
   
   // Toggle mobile menu
   const toggleMobileMenu = () => {
@@ -58,6 +71,11 @@ const Navigation: React.FC<NavigationProps> = ({
           <li className={currentPage === 'dashboard' ? 'active' : ''}>
             <button onClick={() => navigateAndClose('dashboard')}>Dashboard</button>
           </li>
+          {isAdmin && (
+            <li className={currentPage === 'prompts' ? 'active' : ''}>
+              <button onClick={() => navigateAndClose('prompts')}>Prompt Manager</button>
+            </li>
+          )}
         </ul>
       ) : (
         <ul className={`nav-links ${mobileMenuOpen ? 'mobile-open' : ''}`}>

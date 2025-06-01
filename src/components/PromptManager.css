@@ -1,0 +1,166 @@
+.prompt-manager {
+  padding: 2rem;
+  background-color: #f9f9fb;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.prompt-manager h2 {
+  color: #333;
+  margin-bottom: 1rem;
+  border-bottom: 2px solid #3367d6;
+  padding-bottom: 0.5rem;
+  display: inline-block;
+}
+
+.prompt-manager .description {
+  margin-bottom: 1.5rem;
+  color: #555;
+  line-height: 1.5;
+}
+
+.prompt-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.prompt-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.prompt-selector label {
+  font-weight: bold;
+  color: #333;
+}
+
+.prompt-selector select {
+  padding: 0.75rem;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  background-color: white;
+}
+
+.prompt-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.prompt-content label {
+  font-weight: bold;
+  color: #333;
+}
+
+.prompt-content textarea {
+  padding: 1rem;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-family: monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  resize: vertical;
+  background-color: #f5f5f7;
+}
+
+.template-variables {
+  background-color: #f0f4ff;
+  padding: 1rem;
+  border-radius: 4px;
+  border-left: 4px solid #3367d6;
+}
+
+.template-variables h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.template-variables ul {
+  margin-top: 0.5rem;
+  padding-left: 1.5rem;
+}
+
+.template-variables li {
+  margin-bottom: 0.25rem;
+}
+
+.template-variables code {
+  background-color: #e0e6f5;
+  padding: 0.15rem 0.3rem;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+.prompt-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.prompt-actions button {
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.prompt-actions button:first-child {
+  background-color: #3367d6;
+  color: white;
+}
+
+.prompt-actions button:first-child:hover {
+  background-color: #2854b8;
+}
+
+.prompt-actions button:last-child {
+  background-color: #e0e0e0;
+  color: #333;
+}
+
+.prompt-actions button:last-child:hover {
+  background-color: #d0d0d0;
+}
+
+.prompt-actions button:active {
+  transform: translateY(1px);
+}
+
+.prompt-actions button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.loading {
+  padding: 1rem;
+  text-align: center;
+  color: #555;
+  font-style: italic;
+}
+
+.error-message {
+  background-color: #ffe5e5;
+  color: #d32f2f;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  border-left: 4px solid #d32f2f;
+}
+
+.success-message {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  border-left: 4px solid #2e7d32;
+}

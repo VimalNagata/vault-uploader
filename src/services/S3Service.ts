@@ -611,6 +611,45 @@ class S3Service {
     };
     personas?: Record<string, any>;
     personaTypes?: string[];  // Added to help with summary mode
+    userMasterProfile?: {
+      lastUpdated: string;
+      fileCount: number;
+      userProfile: {
+        demographics?: {
+          name?: string;
+          age?: number;
+          gender?: string;
+          currentLocation?: string;
+          previousLocations?: string[];
+          birthDate?: string;
+          maritalStatus?: string;
+          familyMembers?: {
+            spouse?: string;
+            childrenCount?: number;
+            children?: string[];
+          };
+        };
+        financialMetrics?: Record<string, any>;
+        professionalMetrics?: Record<string, any>;
+        socialMetrics?: Record<string, any>;
+        healthMetrics?: Record<string, any>;
+        travelMetrics?: Record<string, any>;
+        technologyMetrics?: Record<string, any>;
+        interests?: string[];
+      };
+      categories?: Record<string, {
+        relevance: number;
+        count: number;
+        dataPoints: string[];
+      }>;
+      insights?: string[];
+      sourceFiles?: Array<{
+        fileName: string;
+        fileType: string;
+        processedAt: string;
+        categories: string[];
+      }>;
+    };
   }> {
     // Get JWT token from AuthService
     const token = await AuthService.getJwtToken();
@@ -722,6 +761,70 @@ class S3Service {
     
     return data;
   }
+
+  /**
+   * Generic API call method to interact with Lambda functions
+   * @param method HTTP method (GET, POST, PUT, DELETE)
+   * @param endpoint API endpoint name (matches the Lambda function name)
+   * @param body Optional request body for POST/PUT requests
+   * @returns Promise with the API response
+   */
+  async callApi(method: string, endpoint: string, body?: any): Promise<any> {
+    // Get JWT token for authorization
+    const token = await AuthService.getJwtToken();
+    
+    if (!token) {
+      throw new Error("Authentication required. Please sign in to use this feature.");
+    }
+    
+    // API endpoint URL construction
+    const baseUrl = process.env.REACT_APP_API_BASE_URL || 
+      'https://8dk906qbg3.execute-api.us-east-1.amazonaws.com/prod';
+    const apiUrl = `${baseUrl}/${endpoint}`;
+    
+    console.log(`Making ${method} request to ${apiUrl}`);
+    
+    // Create request options
+    const options: RequestInit = {
+      method: method,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    };
+    
+    // Add body for POST and PUT requests
+    if ((method === 'POST' || method === 'PUT') && body) {
+      options.body = JSON.stringify(body);
+    }
+    
+    // Get email for query parameter (temporary until authorization is fixed)
+    const userInfoStr = localStorage.getItem("dna_user_info");
+    let email = "";
+    
+    if (userInfoStr) {
+      try {
+        const userInfo = JSON.parse(userInfoStr);
+        email = userInfo.email || "";
+      } catch (e) {
+        console.error("Failed to parse user info:", e);
+      }
+    }
+    
+    // Add email as query parameter if available
+    const url = email ? `${apiUrl}?email=${encodeURIComponent(email)}` : apiUrl;
+    
+    // Make the API call
+    const response = await fetch(url, options);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error calling ${endpoint} API:`, errorText);
+      throw new Error(`Failed to call ${endpoint}: ${response.status} ${response.statusText}`);
+    }
+    
+    return await response.json();
+  }
 }
 
 // Folder structure for organizing user data
@@ -757,4 +860,5 @@ export function getUserStagePath(username: string, stage: DataStage, subPath?: s
   return basePath;
 }
 
+// Export an instance of the service
 export default new S3Service();

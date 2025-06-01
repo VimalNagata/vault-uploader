@@ -36,6 +36,7 @@ function show_help() {
   echo "  preprocessor                 Deploy data-preprocessor"
   echo "  orchestrator                 Deploy data-processing-orchestrator"
   echo "  persona-builder              Deploy persona-builder"
+  echo "  prompt-manager               Deploy prompt-manager"
   echo "  <specific-function-name>     Deploy a specific Lambda function"
   echo ""
   echo "Options:"
@@ -452,6 +453,9 @@ deploy_all() {
   deploy_lambda "categorize-user-data" "$action"
   deploy_lambda "persona-builder" "$action"
   
+  # Admin functions
+  deploy_lambda "prompt-manager" "$action"
+  
   # Configure and potentially deploy API Gateway
   deploy_api_gateway
 }
@@ -481,6 +485,7 @@ deploy_pipeline() {
   deploy_lambda "data-preprocessor" "$action"
   deploy_lambda "categorize-user-data" "$action"
   deploy_lambda "persona-builder" "$action"
+  deploy_lambda "prompt-manager" "$action"
   
   # Configure S3 event notifications
   if [[ "$action" == "create" || ! -f "$SCRIPT_DIR/s3-event-trigger.json" ]]; then
@@ -567,6 +572,9 @@ case "$LAMBDA_FUNCTION" in
     ;;
   "persona-builder")
     deploy_lambda "persona-builder" "$ACTION"
+    ;;
+  "prompt-manager")
+    deploy_lambda "prompt-manager" "$ACTION"
     ;;
   *)
     # Deploy a specific Lambda function

@@ -433,57 +433,30 @@ async function updatePersonaWithOpenAI(
 ) {
   console.log(`Updating ${existingPersona.type} persona with AI...`);
 
-  // Prepare content for OpenAI
-  const prompt = `
-  I'm building a personal data profile for a user. Please update their existing ${
-    existingPersona.type
-  } persona with new information from a data file.
+  // Get the prompt template from S3
+  const promptTemplate = await getPromptTemplate("persona-builder");
+  console.log("Retrieved prompt template from S3");
 
-  Existing Persona:
-  ${JSON.stringify(existingPersona, null, 2)}
-
-  New Data:
-  - File: ${fileName}
-  - File Type: ${fileType}
-  - File Summary: ${fileSummary}
-  - Relevance to ${existingPersona.type}: ${categoryData.relevance}/10
-  - Category Summary: ${categoryData.summary}
-  - Data Points: ${JSON.stringify(categoryData.dataPoints)}
-  
-  ${
-    userProfile
-      ? `User Profile Information (from master profile):
+  // Prepare variables for template replacement
+  const timestamp = new Date().toISOString();
+  const userProfileText = userProfile
+    ? `User Profile Information (from master profile):
   ${JSON.stringify(userProfile, null, 2)}`
-      : ""
-  }
+    : "";
 
-  Instructions:
-  1. Update the persona's traits with any new information
-  2. Add new insights not previously mentioned
-  3. Add the new file as a source
-  4. Update the summary to be more comprehensive and usable by a ad-server or a campaign audience creation tool
-  5. Increase the completeness score (current: ${
-    existingPersona.completeness
-  }/100) based on how much new information was added
-
-  Return the updated persona in JSON format with the following structure:
-  {
-    "type": "${existingPersona.type}",
-    "name": "Updated name if needed",
-    "lastUpdated": "${new Date().toISOString()}",
-    "completeness": updated score out of 100,
-    "summary": "Updated summary",
-    "insights": ["insight 1", "insight 2", ...],
-    "dataPoints": ["dataPoint1", "dataPoint2", ...],
-    "traits": {
-      // Appropriate traits for this persona type with updated values
-    },
-    "sources": ["existing sources", "${fileName}"]
-  }
-
-  Only make changes to the persona that are supported by the new data. Don't remove existing information unless it's clearly contradicted.
-  Return only the JSON object with no additional text.
-  `;
+  // Replace template variables with actual values
+  const prompt = promptTemplate
+    .replace(/\{\{personaType\}\}/g, existingPersona.type)
+    .replace("{{existingPersona}}", JSON.stringify(existingPersona, null, 2))
+    .replace("{{fileName}}", fileName)
+    .replace("{{fileType}}", fileType)
+    .replace("{{fileSummary}}", fileSummary)
+    .replace("{{relevance}}", categoryData.relevance)
+    .replace("{{categorySummary}}", categoryData.summary)
+    .replace("{{dataPoints}}", JSON.stringify(categoryData.dataPoints))
+    .replace("{{userProfile}}", userProfileText)
+    .replace("{{completeness}}", existingPersona.completeness)
+    .replace("{{timestamp}}", timestamp);
 
   // Call OpenAI API
   try {
@@ -510,7 +483,7 @@ async function updatePersonaWithOpenAI(
       console.log("Returning original persona due to parsing error");
       return {
         ...existingPersona,
-        lastUpdated: new Date().toISOString(),
+        lastUpdated: timestamp,
         sources: [...(existingPersona.sources || []), fileName],
       };
     }
@@ -519,9 +492,88 @@ async function updatePersonaWithOpenAI(
     // Return existing persona with the new file as a source
     return {
       ...existingPersona,
-      lastUpdated: new Date().toISOString(),
+      lastUpdated: timestamp,
       sources: [...(existingPersona.sources || []), fileName],
     };
+  }
+}
+
+/**
+ * Get a prompt template from S3
+ * @param {string} promptName - The name of the prompt template to retrieve
+ * @returns {Promise<string>} - The prompt template
+ */
+async function getPromptTemplate(promptName) {
+  try {
+    const promptsKey = `prompt-templates/prompts.json`;
+    
+    try {
+      // Try to get the prompts file from S3
+      const params = {
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: promptsKey,
+      };
+
+      const data = await s3.getObject(params).promise();
+      const promptTemplates = JSON.parse(data.Body.toString("utf-8"));
+      
+      if (promptTemplates[promptName]) {
+        return promptTemplates[promptName];
+      }
+      
+      console.log(`Prompt template '${promptName}' not found, using default`);
+    } catch (error) {
+      if (error.code !== "NoSuchKey") {
+        console.error("Error retrieving prompt templates:", error);
+      }
+      console.log("No prompt templates found in S3, using default");
+    }
+
+    // Default prompt template if not found in S3
+    return `
+    I'm building a personal data profile for a user. Please update their existing {{personaType}} persona with new information from a data file.
+  
+    Existing Persona:
+    {{existingPersona}}
+  
+    New Data:
+    - File: {{fileName}}
+    - File Type: {{fileType}}
+    - File Summary: {{fileSummary}}
+    - Relevance to {{personaType}}: {{relevance}}/10
+    - Category Summary: {{categorySummary}}
+    - Data Points: {{dataPoints}}
+    
+    {{userProfile}}
+  
+    Instructions:
+    1. Update the persona's traits with any new information
+    2. Add new insights not previously mentioned
+    3. Add the new file as a source
+    4. Update the summary to be more comprehensive and usable by a ad-server or a campaign audience creation tool
+    5. Increase the completeness score (current: {{completeness}}/100) based on how much new information was added
+  
+    Return the updated persona in JSON format with the following structure:
+    {
+      "type": "{{personaType}}",
+      "name": "Updated name if needed",
+      "lastUpdated": "{{timestamp}}",
+      "completeness": updated score out of 100,
+      "summary": "Updated summary",
+      "insights": ["insight 1", "insight 2", ...],
+      "dataPoints": ["dataPoint1", "dataPoint2", ...],
+      "traits": {
+        // Appropriate traits for this persona type with updated values
+      },
+      "sources": ["existing sources", "{{fileName}}"]
+    }
+  
+    Only make changes to the persona that are supported by the new data. Don't remove existing information unless it's clearly contradicted.
+    Return only the JSON object with no additional text.
+    `;
+  } catch (error) {
+    console.error("Error getting prompt template:", error);
+    throw error;
   }
 }
 

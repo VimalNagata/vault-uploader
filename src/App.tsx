@@ -9,6 +9,7 @@ import ViewData from './components/ViewData';
 import HomePage from './components/HomePage';
 import RawData from './components/RawData';
 import CategoryDetail from './components/CategoryDetail';
+import PromptManager from './components/PromptManager';
 import './App.css';
 
 // Import the real S3Service
@@ -107,7 +108,7 @@ const App: React.FC = () => {
   const handleNavigate = (page: string) => {
     // Redirect to login page for authenticated features
     if ((page === 'upload' || page === 'view' || page === 'personas' || page === 'dashboard' || 
-        page === 'rawdata' || page.startsWith('category/')) && !isLoggedIn) {
+        page === 'rawdata' || page === 'prompts' || page.startsWith('category/')) && !isLoggedIn) {
       setCurrentPage('login');
     } else {
       setCurrentPage(page);
@@ -150,6 +151,8 @@ const App: React.FC = () => {
           <p>We're creating step-by-step guides to help you download your data from major platforms.</p>
           <button onClick={() => handleNavigate('dashboard')}>Back to Dashboard</button>
         </div>;
+      case 'prompts':
+        return <PromptManager userEmail={userInfo?.email || username} />;
       default:
         return <HomePage onNavigate={handleNavigate} />;
     }
