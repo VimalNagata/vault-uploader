@@ -236,20 +236,32 @@ async function updateUserProfile(userEmail) {
   }
 
   // Process preprocessed files in batches
-  const batchSize = 10; // Process 10 files at a time to avoid memory issues
+  const batchSize = 5; // Process 5 files at a time to avoid memory and rate limit issues
   for (let i = 0; i < preprocessedFiles.length; i += batchSize) {
     const batch = preprocessedFiles.slice(i, i + batchSize);
     
-    // Process the batch
-    const batchPromises = batch.map(async (file) => {
+    console.log(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(preprocessedFiles.length/batchSize)}`);
+    
+    // Process each file in the batch sequentially to avoid rate limits
+    for (let j = 0; j < batch.length; j++) {
+      const file = batch[j];
+      
       try {
         // Skip if file is already processed
         if (userProfile.sourceFiles.some(source => source.fileName === file)) {
           console.log(`File ${file} already processed, skipping`);
-          return null;
+          continue;
         }
         
-        console.log(`Processing file: ${file}`);
+        console.log(`Processing file: ${file} (${j+1}/${batch.length} in current batch)`);
+        
+        // Add a small delay between files to avoid rate limits
+        if (j > 0) {
+          const staggerDelay = 1000 + Math.floor(Math.random() * 2000); // 1-3 second delay
+          console.log(`Adding stagger delay of ${staggerDelay}ms before processing next file`);
+          await delay(staggerDelay);
+        }
+        
         const fileContent = await getFileContent(sanitizedEmail, "preprocessed", file);
         
         // Extract metrics from the file
@@ -261,21 +273,21 @@ async function updateUserProfile(userEmail) {
           processedAt: new Date().toISOString(),
         });
         
-        return metrics;
+        // Update user profile with the new metrics right away
+        if (metrics) {
+          userProfile = mergeProfileMetrics(userProfile, metrics);
+        }
       } catch (error) {
         console.error(`Error processing file ${file}:`, error.message);
-        return null;
+        // Continue with next file even if one fails
       }
-    });
+    }
     
-    // Wait for all files in the batch to be processed
-    const batchResults = await Promise.all(batchPromises);
-    
-    // Update user profile with the new metrics
-    for (const metrics of batchResults) {
-      if (metrics) {
-        userProfile = mergeProfileMetrics(userProfile, metrics);
-      }
+    // Add a delay between batches
+    if (i + batchSize < preprocessedFiles.length) {
+      const batchDelay = 5000; // 5 second delay between batches
+      console.log(`Batch complete. Adding ${batchDelay}ms delay before next batch`);
+      await delay(batchDelay);
     }
   }
 
@@ -551,88 +563,151 @@ async function getPromptTemplate(promptName) {
 }
 
 /**
- * Call OpenAI API with optimized configuration
+ * Simple delay function
+ * @param {number} ms - Milliseconds to delay
+ * @returns {Promise<void>}
+ */
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Call OpenAI API with retry logic for rate limits
  * @param {string} prompt - The prompt to send to OpenAI
+ * @param {number} maxRetries - Maximum number of retries (default: 3)
  * @returns {Promise<string>} - The OpenAI response
  */
-async function callOpenAI(prompt) {
+async function callOpenAI(prompt, maxRetries = 3) {
   // Cache system message to avoid regenerating it with each call
   const systemMessage =
     "You are a data analyst specialized in extracting quantitative metrics and factual information from personal data exports. Focus ONLY on hard facts, numbers, and metrics that can be directly measured or counted. Do not include categories, interpretations, or subjective analysis.";
 
-  return new Promise((resolve, reject) => {
-    // Use JSON.stringify once for better performance
-    const openaiData = JSON.stringify({
-      model: "gpt-3.5-turbo-1106",
-      messages: [
-        { role: "system", content: systemMessage },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.1, // Lower temperature for more factual, consistent responses
-      max_tokens: 4000,
-      response_format: { type: "json_object" },
-      top_p: 0.95,
-    });
+  let retries = 0;
+  let lastError = null;
 
-    // Set up request options with efficient headers
-    const options = {
-      hostname: "api.openai.com",
-      path: "/v1/chat/completions",
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Length": Buffer.byteLength(openaiData),
-      },
-      timeout: 60000, // 60 second timeout
-    };
+  while (retries <= maxRetries) {
+    try {
+      // If this is a retry, add an exponential backoff delay
+      if (retries > 0) {
+        const backoffDelay = Math.pow(2, retries) * 1000; // Exponential backoff: 2s, 4s, 8s...
+        console.log(`Rate limit hit, retry ${retries}/${maxRetries} after ${backoffDelay}ms delay`);
+        await delay(backoffDelay);
+      }
 
-    // Create and manage the request
-    const req = https.request(options, (res) => {
-      // Use array buffer for more efficient memory usage with large responses
-      const chunks = [];
+      return await new Promise((resolve, reject) => {
+        // Use JSON.stringify once for better performance
+        const openaiData = JSON.stringify({
+          model: "gpt-3.5-turbo-1106",
+          messages: [
+            { role: "system", content: systemMessage },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.1, // Lower temperature for more factual, consistent responses
+          max_tokens: 4000,
+          response_format: { type: "json_object" },
+          top_p: 0.95,
+        });
 
-      res.on("data", (chunk) => chunks.push(chunk));
+        // Set up request options with efficient headers
+        const options = {
+          hostname: "api.openai.com",
+          path: "/v1/chat/completions",
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            "Content-Length": Buffer.byteLength(openaiData),
+          },
+          timeout: 60000, // 60 second timeout
+        };
 
-      res.on("end", () => {
-        try {
-          // Combine chunks efficiently
-          const responseData = Buffer.concat(chunks).toString();
-          const parsedResponse = JSON.parse(responseData);
+        // Create and manage the request
+        const req = https.request(options, (res) => {
+          // Use array buffer for more efficient memory usage with large responses
+          const chunks = [];
 
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            if (parsedResponse.choices?.[0]?.message?.content) {
-              resolve(parsedResponse.choices[0].message.content);
-            } else {
-              reject(new Error("No valid content in OpenAI response"));
+          res.on("data", (chunk) => chunks.push(chunk));
+
+          res.on("end", () => {
+            try {
+              // Combine chunks efficiently
+              const responseData = Buffer.concat(chunks).toString();
+              const parsedResponse = JSON.parse(responseData);
+
+              if (res.statusCode >= 200 && res.statusCode < 300) {
+                if (parsedResponse.choices?.[0]?.message?.content) {
+                  resolve(parsedResponse.choices[0].message.content);
+                } else {
+                  reject(new Error("No valid content in OpenAI response"));
+                }
+              } else {
+                const errorMsg = parsedResponse.error?.message || "Unknown API error";
+                
+                // Check if this is a rate limit error that we should retry
+                if (
+                  errorMsg.includes("Rate limit") && 
+                  errorMsg.includes("Please try again in") &&
+                  retries < maxRetries
+                ) {
+                  // Extract the suggested wait time if available
+                  const waitMatch = errorMsg.match(/try again in (\d+\.\d+)s/);
+                  const waitTime = waitMatch ? parseFloat(waitMatch[1]) * 1000 : null;
+                  
+                  // This error will be caught by the outer try/catch and trigger a retry
+                  reject({
+                    isRateLimit: true,
+                    message: errorMsg,
+                    suggestedWaitMs: waitTime
+                  });
+                } else {
+                  console.error("OpenAI API error:", errorMsg);
+                  reject(new Error(`OpenAI API error: ${errorMsg}`));
+                }
+              }
+            } catch (e) {
+              reject(new Error(`Failed to parse OpenAI response: ${e.message}`));
             }
-          } else {
-            const errorMsg =
-              parsedResponse.error?.message || "Unknown API error";
-            console.error("OpenAI API error:", errorMsg);
-            reject(new Error(`OpenAI API error: ${errorMsg}`));
-          }
-        } catch (e) {
-          reject(new Error(`Failed to parse OpenAI response: ${e.message}`));
-        }
+          });
+        });
+
+        // Add error handling
+        req.on("error", (error) => {
+          reject(new Error(`OpenAI request failed: ${error.message}`));
+        });
+
+        // Add timeout handling
+        req.on("timeout", () => {
+          req.destroy();
+          reject(new Error("OpenAI request timed out after 60 seconds"));
+        });
+
+        // Send the request
+        req.write(openaiData);
+        req.end();
       });
-    });
+    } catch (error) {
+      lastError = error;
+      
+      // If this is a rate limit error with a suggested wait time, use that instead of exponential backoff
+      if (error.isRateLimit && error.suggestedWaitMs) {
+        const waitTime = error.suggestedWaitMs + 500; // Add a small buffer
+        console.log(`Rate limit hit, waiting for suggested time: ${waitTime}ms`);
+        await delay(waitTime);
+      }
+      
+      // Increment retry counter and continue the loop
+      retries++;
+      
+      // If this was the last retry, throw the error
+      if (retries > maxRetries) {
+        console.error(`Max retries (${maxRetries}) reached. Giving up.`);
+        throw new Error(`Failed after ${maxRetries} retries: ${lastError.message}`);
+      }
+    }
+  }
 
-    // Add error handling
-    req.on("error", (error) => {
-      reject(new Error(`OpenAI request failed: ${error.message}`));
-    });
-
-    // Add timeout handling
-    req.on("timeout", () => {
-      req.destroy();
-      reject(new Error("OpenAI request timed out after 60 seconds"));
-    });
-
-    // Send the request
-    req.write(openaiData);
-    req.end();
-  });
+  // This should never be reached, but just in case
+  throw lastError || new Error("Unknown error in callOpenAI");
 }
 
 /**

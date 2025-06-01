@@ -20,6 +20,12 @@ const path = require("path");
 const lambda = new AWS.Lambda();
 const s3 = new AWS.S3();
 
+// Rate limiting configuration
+const MAX_CONCURRENT_OPENAI_CALLS = 3; // Maximum number of concurrent OpenAI calls per user
+const RATE_LIMIT_DELAY_MS = 2000; // Delay between OpenAI calls in milliseconds
+const PROCESSING_DELAY_BASE_MS = 1000; // Base delay for staged processing
+let activeProcessingCount = {}; // Track active processing by user email
+
 /**
  * Main Lambda handler function
  */
@@ -59,6 +65,38 @@ exports.handler = async (event) => {
 };
 
 /**
+ * Simple delay function
+ * @param {number} ms - Milliseconds to delay
+ * @returns {Promise<void>}
+ */
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Track the number of active processes for rate limiting
+ * @param {string} userEmail - User's email
+ * @param {string} stage - Processing stage
+ * @param {boolean} increment - True to increment, false to decrement
+ * @returns {number} - Current count after operation
+ */
+function trackActiveProcessing(userEmail, stage, increment = true) {
+  const key = `${userEmail}:${stage}`;
+  
+  if (!activeProcessingCount[key]) {
+    activeProcessingCount[key] = 0;
+  }
+  
+  if (increment) {
+    activeProcessingCount[key]++;
+  } else {
+    activeProcessingCount[key] = Math.max(0, activeProcessingCount[key] - 1);
+  }
+  
+  return activeProcessingCount[key];
+}
+
+/**
  * Process an S3 event record
  * @param {Object} record - The S3 event record
  */
@@ -88,19 +126,46 @@ async function processS3Event(record) {
     console.log(`Skipping non-data file: ${key}`);
     return;
   }
+
+  // Add rate limiting for OpenAI stages
+  if (stage === 'preprocessed' || stage === 'stage2') {
+    const activeCount = trackActiveProcessing(userEmail, stage, true);
+    console.log(`Active processing count for ${userEmail} in ${stage}: ${activeCount}`);
+    
+    // Apply rate limiting if too many concurrent processes
+    if (activeCount > MAX_CONCURRENT_OPENAI_CALLS) {
+      // Calculate delay based on active count (the more active, the longer the delay)
+      const additionalDelay = RATE_LIMIT_DELAY_MS * (activeCount - MAX_CONCURRENT_OPENAI_CALLS);
+      console.log(`Applying rate limit delay of ${additionalDelay}ms for ${userEmail}`);
+      await delay(additionalDelay);
+    } else {
+      // Add a small randomized delay even when under the limit to stagger requests
+      const staggerDelay = Math.floor(Math.random() * PROCESSING_DELAY_BASE_MS);
+      console.log(`Applying stagger delay of ${staggerDelay}ms for ${userEmail}`);
+      await delay(staggerDelay);
+    }
+  }
   
-  // Route to appropriate processor based on stage
-  if (stage === 'stage1') {
-    // Raw data files - route to preprocessor
-    await invokePreprocessor(bucket, key, userEmail);
-  } else if (stage === 'preprocessed') {
-    // Preprocessed files - route to categorizer
-    await invokeStage1Processor(bucket, key, userEmail);
-  } else if (stage === 'stage2') {
-    // Categorized files - route to persona builder
-    await invokeStage2Processor(bucket, key, userEmail);
-  } else {
-    console.log(`No processor configured for stage: ${stage}`);
+  try {
+    // Route to appropriate processor based on stage
+    if (stage === 'stage1') {
+      // Raw data files - route to preprocessor
+      await invokePreprocessor(bucket, key, userEmail);
+    } else if (stage === 'preprocessed') {
+      // Preprocessed files - route to categorizer
+      await invokeStage1Processor(bucket, key, userEmail);
+    } else if (stage === 'stage2') {
+      // Categorized files - route to persona builder
+      await invokeStage2Processor(bucket, key, userEmail);
+    } else {
+      console.log(`No processor configured for stage: ${stage}`);
+    }
+  } finally {
+    // Decrement active processing count when done (for OpenAI stages)
+    if (stage === 'preprocessed' || stage === 'stage2') {
+      const activeCount = trackActiveProcessing(userEmail, stage, false);
+      console.log(`Reduced active processing count for ${userEmail} in ${stage} to ${activeCount}`);
+    }
   }
 }
 
