@@ -61,8 +61,15 @@ The Digital DNA backend consists of the following components:
    - Analyzes file content using OpenAI
    - Classifies data into categories (financial, social, etc.)
    - Extracts structured information from unstructured data
+   - Stores categorized data in stage2
 
-7. **persona-builder.js**
+7. **user-profile-builder.js**
+   - Builds and maintains user master profile
+   - Aggregates profile data from all categorized files
+   - Triggered by S3 events when new files are categorized
+   - Implements stage 2a of the processing pipeline
+
+8. **persona-builder.js**
    - Builds comprehensive user personas
    - Aggregates insights across data sources
    - Creates a holistic view of user data
@@ -87,7 +94,8 @@ The data flows through the system as follows:
 1. **Upload**: User uploads files to `stage1/`
 2. **Preprocessing**: Files are converted and chunked in `preprocessed/`
 3. **Categorization**: Files are analyzed and categorized in `stage2/`
-4. **Persona Building**: Insights are aggregated into `stage3/`
+4. **Profile Building**: User master profile is built/updated in `stage2/user_master_profile.json`
+5. **Persona Building**: Insights are aggregated into `stage3/`
 
 ## Deployment
 

@@ -2,7 +2,7 @@
 # Script to configure API Gateway for the prompt-manager Lambda function
 
 # Set variables
-API_NAME="ccpa-uploader-api"
+API_NAME="dee-en-eh-api"
 STAGE_NAME="prod"
 REGION=${AWS_REGION:-"us-east-1"}
 LAMBDA_NAME="prompt-manager"
@@ -83,7 +83,7 @@ if [ -z "$OPTIONS_EXISTS" ]; then
     --response-parameters "{\"method.response.header.Access-Control-Allow-Headers\":\"'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'\",\"method.response.header.Access-Control-Allow-Methods\":\"'GET,POST,PUT,OPTIONS'\",\"method.response.header.Access-Control-Allow-Origin\":\"'*'\"}" \
     --response-templates '{"application/json":""}' \
     --region $REGION
-    
+
   echo "Created OPTIONS method"
 fi
 
@@ -119,7 +119,7 @@ if [ -z "$GET_EXISTS" ]; then
     --status-code 200 \
     --response-parameters "{\"method.response.header.Access-Control-Allow-Origin\":true}" \
     --region $REGION
-    
+
   echo "Created GET method"
 fi
 
@@ -155,7 +155,7 @@ if [ -z "$POST_EXISTS" ]; then
     --status-code 200 \
     --response-parameters "{\"method.response.header.Access-Control-Allow-Origin\":true}" \
     --region $REGION
-    
+
   echo "Created POST method"
 fi
 
@@ -191,7 +191,7 @@ if [ -z "$PUT_EXISTS" ]; then
     --status-code 200 \
     --response-parameters "{\"method.response.header.Access-Control-Allow-Origin\":true}" \
     --region $REGION
-    
+
   echo "Created PUT method"
 fi
 
@@ -200,17 +200,17 @@ if [ "$1" == "--deploy" ] || [ "$2" == "--deploy" ]; then
   # Deploy the API
   STAGE=$([ "$2" == "--stage" ] && echo "$3" || echo "$STAGE_NAME")
   echo "Deploying API to stage: $STAGE"
-  
+
   DEPLOYMENT_ID=$(aws apigateway create-deployment \
     --rest-api-id $API_ID \
     --stage-name $STAGE \
     --region $REGION \
     --query 'id' \
     --output text)
-  
+
   echo "API deployed with deployment ID: $DEPLOYMENT_ID"
   echo "API Gateway endpoint: https://$API_ID.execute-api.$REGION.amazonaws.com/$STAGE/prompt-manager"
-  
+
   # Add Lambda permissions if needed
   STATEMENT_ID="apigateway-prompt-manager-$STAGE"
   if ! aws lambda get-policy --function-name $LAMBDA_NAME --region $REGION 2>/dev/null | grep -q "$STATEMENT_ID"; then
@@ -222,7 +222,7 @@ if [ "$1" == "--deploy" ] || [ "$2" == "--deploy" ]; then
       --principal apigateway.amazonaws.com \
       --source-arn "arn:aws:execute-api:$REGION:$(aws sts get-caller-identity --query 'Account' --output text):$API_ID/*/*/*" \
       --region $REGION
-    
+
     echo "Lambda permission added"
   else
     echo "Lambda permission already exists"

@@ -4,8 +4,9 @@
  * This Lambda function orchestrates the data processing pipeline by:
  * 1. Getting triggered when files are uploaded to any stage in S3
  * 2. Routing to the appropriate processor based on the stage:
- *    - stage1 files → categorize-user-data Lambda
- *    - stage2 files → persona-builder Lambda
+ *    - stage1 files → data-preprocessor Lambda
+ *    - preprocessed files → categorize-user-data Lambda
+ *    - stage2 files → user-profile-builder (stage 2a) and persona-builder Lambda (stage 3)
  * 
  * Environment Variables:
  * - S3_BUCKET_NAME: The name of the S3 bucket for user data
@@ -161,7 +162,7 @@ async function invokeStage1Processor(bucket, key, userEmail) {
   
   console.log(`Invoking stage1 processor (categorize-user-data) for ${fileName}`);
   
-  const params = {
+  const categorizeParams = {
     FunctionName: 'categorize-user-data',
     InvocationType: 'Event', // Asynchronous invocation
     Payload: JSON.stringify({
@@ -175,24 +176,81 @@ async function invokeStage1Processor(bucket, key, userEmail) {
   };
   
   try {
-    const result = await lambda.invoke(params).promise();
-    console.log(`Successfully initiated stage1 processing for ${key}`, result);
+    const result = await lambda.invoke(categorizeParams).promise();
+    console.log(`Successfully initiated categorization for ${key}`, result);
   } catch (error) {
-    console.error(`Failed to invoke stage1 processor for ${key}:`, error);
+    console.error(`Failed to invoke categorize-user-data for ${key}:`, error);
     throw error;
+  }
+  
+  // Also invoke the user profile builder directly to process from preprocessed file
+  console.log(`Invoking user profile builder for ${fileName}`);
+  
+  const profileParams = {
+    FunctionName: 'user-profile-builder',
+    InvocationType: 'Event', // Asynchronous invocation
+    Payload: JSON.stringify({
+      Records: [{
+        s3: {
+          bucket: { name: bucket },
+          object: { key: key }
+        }
+      }]
+    })
+  };
+  
+  try {
+    const profileResult = await lambda.invoke(profileParams).promise();
+    console.log(`Successfully initiated profile building for ${key}`, profileResult);
+  } catch (error) {
+    console.error(`Failed to invoke user-profile-builder for ${key}:`, error);
+    // Continue even if profile builder fails
+    console.log("Continuing pipeline despite profile builder error");
   }
 }
 
 /**
- * Invoke the stage2 processor (persona-builder)
+ * Invoke the stage2 processors (user-profile-builder and persona-builder)
  * @param {string} bucket - S3 bucket name
  * @param {string} key - S3 object key
  * @param {string} userEmail - User's email
  */
 async function invokeStage2Processor(bucket, key, userEmail) {
-  console.log(`Invoking stage2 processor (persona-builder) for ${key}`);
+  // Skip the user master profile to avoid recursive processing
+  if (key.endsWith('user_master_profile.json')) {
+    console.log(`Skipping user_master_profile.json to avoid recursive processing`);
+    return;
+  }
   
-  const params = {
+  // First invoke the user-profile-builder (stage 2a)
+  console.log(`Invoking stage2a processor (user-profile-builder) for ${key}`);
+  
+  const profileParams = {
+    FunctionName: 'user-profile-builder',
+    InvocationType: 'Event', // Asynchronous invocation
+    Payload: JSON.stringify({
+      Records: [{
+        s3: {
+          bucket: { name: bucket },
+          object: { key: key }
+        }
+      }]
+    })
+  };
+  
+  try {
+    const profileResult = await lambda.invoke(profileParams).promise();
+    console.log(`Successfully initiated user profile building for ${key}`, profileResult);
+  } catch (error) {
+    console.error(`Failed to invoke user-profile-builder for ${key}:`, error);
+    // Continue to persona-builder even if profile builder fails
+    console.log("Continuing to persona-builder despite profile builder error");
+  }
+  
+  // Then invoke the persona-builder (stage 3)
+  console.log(`Invoking stage3 processor (persona-builder) for ${key}`);
+  
+  const personaParams = {
     FunctionName: 'persona-builder',
     InvocationType: 'Event', // Asynchronous invocation
     Payload: JSON.stringify({
@@ -206,10 +264,10 @@ async function invokeStage2Processor(bucket, key, userEmail) {
   };
   
   try {
-    const result = await lambda.invoke(params).promise();
-    console.log(`Successfully initiated stage2 processing for ${key}`, result);
+    const personaResult = await lambda.invoke(personaParams).promise();
+    console.log(`Successfully initiated persona building for ${key}`, personaResult);
   } catch (error) {
-    console.error(`Failed to invoke stage2 processor for ${key}:`, error);
+    console.error(`Failed to invoke persona-builder for ${key}:`, error);
     throw error;
   }
 }

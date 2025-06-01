@@ -4,6 +4,9 @@
 ./deploy.sh categorize-user-data
 ./deploy-lambda-function.sh categorize-user-data
 
+./deploy.sh user-profile-builder
+./deploy-lambda-function.sh user-profile-builder
+
 ./deploy.sh persona-builder
 ./deploy-lambda-function.sh persona-builder
 

@@ -213,33 +213,17 @@ async function processFile(userEmail, filePath, fileName) {
   // Get the content of the specified file
   const fileContent = await getFileContent(sanitizedEmail, filePath);
 
-  // Try to get the user master file if it exists
+  // Try to get the user master file if it exists for context only
   let userMasterFile = null;
   try {
     userMasterFile = await getUserMasterFile(sanitizedEmail);
-    console.log("Retrieved existing user master file");
+    console.log("Retrieved existing user master file for context");
   } catch (error) {
     console.log(
-      "No existing user master file found or error retrieving it:",
+      "No existing user master file found for context:",
       error.message
     );
-    userMasterFile = {
-      lastUpdated: new Date().toISOString(),
-      fileCount: 0,
-      userProfile: {
-        demographics: {},
-        financialMetrics: {},
-        professionalMetrics: {},
-        socialMetrics: {
-          connectionsCount: 0,
-          platformsUsed: [],
-        },
-        healthMetrics: {},
-        travelMetrics: {},
-        technologyMetrics: {},
-        interests: [],
-      },
-    };
+    // We don't need to create an empty one since we're not updating it
   }
 
   // Process the file content using OpenAI, passing the user master file for context
@@ -250,14 +234,12 @@ async function processFile(userEmail, filePath, fileName) {
     userMasterFile
   );
 
-  // Update the user master file with new information from the processed file
-  const updatedMasterFile = updateUserMasterFile(userMasterFile, categoryData);
-
-  // Store the updated master file
-  await storeUserMasterFile(sanitizedEmail, updatedMasterFile);
-
   // Store the categorized data in stage2
   await storeProcessedData(sanitizedEmail, fileName, categoryData);
+  
+  // Trigger the user-profile-builder Lambda (this could be done via AWS SDK or EventBridge)
+  // For now, we'll let the S3 event trigger handle it when the file is saved to stage2
+  console.log("File processed. user-profile-builder will be triggered by S3 event");
 
   return {
     statusCode: 200,
@@ -360,11 +342,11 @@ async function processFileWithOpenAI(
     User Information (from previous files):
     ${JSON.stringify(userMasterFile, null, 2)}
 
-    Use this information to supplement your analysis and update it with any new details you find.
+    Use this information to supplement your analysis.
     `;
     console.log("Using existing user master file for context");
   } else {
-    console.log("No existing user master file found, will create a new one");
+    console.log("No existing user master file found");
   }
 
   // Get the prompt template from S3
@@ -737,259 +719,4 @@ async function getUserMasterFile(userPrefix) {
   }
 }
 
-/**
- * Store the updated user master file in S3
- * @param {string} userPrefix - The user's sanitized email
- * @param {Object} masterFile - The user master file
- */
-async function storeUserMasterFile(userPrefix, masterFile) {
-  const masterFileKey = `${userPrefix}/stage2/user_master_profile.json`;
-
-  console.log(
-    `Storing user master file to S3: ${process.env.S3_BUCKET_NAME}/${masterFileKey}`
-  );
-
-  try {
-    const params = {
-      Bucket: process.env.S3_BUCKET_NAME,
-      Key: masterFileKey,
-      Body: JSON.stringify(masterFile, null, 2),
-      ContentType: "application/json",
-    };
-
-    await s3.putObject(params).promise();
-    console.log("User master file stored successfully");
-  } catch (error) {
-    console.error("Error storing user master file:", error);
-    throw new Error(`Failed to store user master file: ${error.message}`);
-  }
-}
-
-/**
- * Helper function to merge arrays with de-duplication
- * @param {Array} existingArray - Existing array to merge into
- * @param {Array} newArray - New array to merge from
- * @returns {Array} - Merged array with unique items
- */
-function mergeArrays(existingArray = [], newArray = []) {
-  if (!Array.isArray(newArray) || newArray.length === 0) return existingArray;
-  if (!Array.isArray(existingArray)) existingArray = [];
-
-  const existingSet = new Set(
-    existingArray.map((item) =>
-      typeof item === "string" ? item.toLowerCase() : JSON.stringify(item)
-    )
-  );
-
-  const result = [...existingArray];
-
-  for (const item of newArray) {
-    if (!item) continue;
-
-    const itemKey =
-      typeof item === "string" ? item.toLowerCase() : JSON.stringify(item);
-
-    if (!existingSet.has(itemKey)) {
-      result.push(item);
-      existingSet.add(itemKey);
-    }
-  }
-
-  return result;
-}
-
-/**
- * Update the user master file with new information
- * @param {Object} existingMasterFile - The existing user master file
- * @param {Object} newCategoryData - The new categorized data
- * @returns {Object} - The updated user master file
- */
-function updateUserMasterFile(existingMasterFile, newCategoryData) {
-  // Clone the existing master file to avoid mutations
-  const updatedMasterFile = JSON.parse(JSON.stringify(existingMasterFile));
-
-  // Update last processed time
-  updatedMasterFile.lastUpdated = new Date().toISOString();
-  updatedMasterFile.fileCount = (updatedMasterFile.fileCount || 0) + 1;
-
-  // If we have a new user profile, use it to update the existing profile
-  if (newCategoryData.userProfile) {
-    // Ensure userProfile object exists
-    updatedMasterFile.userProfile = updatedMasterFile.userProfile || {
-      demographics: {},
-      interests: [],
-    };
-
-    // Update section objects with spread operator
-    const sectionNames = [
-      "demographics",
-      "financialMetrics",
-      "professionalMetrics",
-      "socialMetrics",
-      "healthMetrics",
-      "travelMetrics",
-      "technologyMetrics",
-    ];
-
-    for (const section of sectionNames) {
-      if (newCategoryData.userProfile[section]) {
-        // Ensure section exists
-        updatedMasterFile.userProfile[section] =
-          updatedMasterFile.userProfile[section] || {};
-
-        // Merge objects
-        updatedMasterFile.userProfile[section] = {
-          ...updatedMasterFile.userProfile[section],
-          ...newCategoryData.userProfile[section],
-        };
-
-        // Handle array properties based on section
-        if (section === "financialMetrics") {
-          const arrayProps = ["majorAssets", "investmentTypes"];
-          for (const prop of arrayProps) {
-            if (newCategoryData.userProfile[section][prop]) {
-              updatedMasterFile.userProfile[section][prop] = mergeArrays(
-                updatedMasterFile.userProfile[section][prop],
-                newCategoryData.userProfile[section][prop]
-              );
-            }
-          }
-        } else if (
-          section === "professionalMetrics" &&
-          newCategoryData.userProfile[section].skills
-        ) {
-          updatedMasterFile.userProfile[section].skills = mergeArrays(
-            updatedMasterFile.userProfile[section].skills,
-            newCategoryData.userProfile[section].skills
-          );
-        } else if (
-          section === "socialMetrics" &&
-          newCategoryData.userProfile[section].platformsUsed
-        ) {
-          updatedMasterFile.userProfile[section].platformsUsed = mergeArrays(
-            updatedMasterFile.userProfile[section].platformsUsed,
-            newCategoryData.userProfile[section].platformsUsed
-          );
-        } else if (
-          section === "healthMetrics" &&
-          newCategoryData.userProfile[section].conditions
-        ) {
-          updatedMasterFile.userProfile[section].conditions = mergeArrays(
-            updatedMasterFile.userProfile[section].conditions,
-            newCategoryData.userProfile[section].conditions
-          );
-        } else if (
-          section === "travelMetrics" &&
-          newCategoryData.userProfile[section].frequentDestinations
-        ) {
-          updatedMasterFile.userProfile[section].frequentDestinations =
-            mergeArrays(
-              updatedMasterFile.userProfile[section].frequentDestinations,
-              newCategoryData.userProfile[section].frequentDestinations
-            );
-        } else if (section === "technologyMetrics") {
-          const arrayProps = [
-            "devicesOwned",
-            "operatingSystems",
-            "softwareUsed",
-          ];
-          for (const prop of arrayProps) {
-            if (newCategoryData.userProfile[section][prop]) {
-              updatedMasterFile.userProfile[section][prop] = mergeArrays(
-                updatedMasterFile.userProfile[section][prop],
-                newCategoryData.userProfile[section][prop]
-              );
-            }
-          }
-        }
-      }
-    }
-
-    // Update interests (avoiding duplicates)
-    if (newCategoryData.userProfile.interests) {
-      updatedMasterFile.userProfile.interests = mergeArrays(
-        updatedMasterFile.userProfile.interests,
-        newCategoryData.userProfile.interests
-      );
-    }
-
-    // Handle any other user profile properties we didn't explicitly process
-    for (const [key, value] of Object.entries(newCategoryData.userProfile)) {
-      if (!sectionNames.includes(key) && key !== "interests") {
-        if (
-          typeof value === "object" &&
-          value !== null &&
-          !Array.isArray(value)
-        ) {
-          // For object properties, merge them
-          updatedMasterFile.userProfile[key] = {
-            ...(updatedMasterFile.userProfile[key] || {}),
-            ...value,
-          };
-        } else if (Array.isArray(value)) {
-          // For array properties, add unique items
-          updatedMasterFile.userProfile[key] = mergeArrays(
-            updatedMasterFile.userProfile[key],
-            value
-          );
-        } else {
-          // For primitive values, just assign
-          updatedMasterFile.userProfile[key] = value;
-        }
-      }
-    }
-  }
-
-  // Update category information
-  updatedMasterFile.categories = updatedMasterFile.categories || {};
-
-  if (newCategoryData.categories) {
-    for (const [category, data] of Object.entries(newCategoryData.categories)) {
-      if (!updatedMasterFile.categories[category]) {
-        updatedMasterFile.categories[category] = {
-          relevance: data.relevance || 0,
-          count: 1,
-          dataPoints: [...(data.dataPoints || [])],
-        };
-      } else {
-        // Update existing category
-        updatedMasterFile.categories[category].relevance = Math.max(
-          updatedMasterFile.categories[category].relevance || 0,
-          data.relevance || 0
-        );
-        updatedMasterFile.categories[category].count =
-          (updatedMasterFile.categories[category].count || 0) + 1;
-
-        // Add unique data points
-        updatedMasterFile.categories[category].dataPoints = mergeArrays(
-          updatedMasterFile.categories[category].dataPoints,
-          data.dataPoints
-        );
-      }
-    }
-  }
-
-  // Add any insights to the master file
-  updatedMasterFile.insights = updatedMasterFile.insights || [];
-
-  if (newCategoryData.insights && Array.isArray(newCategoryData.insights)) {
-    updatedMasterFile.insights = mergeArrays(
-      updatedMasterFile.insights,
-      newCategoryData.insights
-    );
-  }
-
-  // Add source files that contributed to this profile
-  updatedMasterFile.sourceFiles = updatedMasterFile.sourceFiles || [];
-
-  if (newCategoryData.fileName) {
-    updatedMasterFile.sourceFiles.push({
-      fileName: newCategoryData.fileName,
-      fileType: newCategoryData.fileType || "unknown",
-      processedAt: new Date().toISOString(),
-      categories: Object.keys(newCategoryData.categories || {}),
-    });
-  }
-
-  return updatedMasterFile;
-}
+// These functions have been moved to the user-profile-builder.js Lambda

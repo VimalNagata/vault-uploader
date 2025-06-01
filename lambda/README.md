@@ -50,9 +50,10 @@ For quick updates to existing Lambda functions:
 
 3. **Data Processing Pipeline**
    - [data-processing-orchestrator.js](./data-processing-orchestrator.js): Orchestrates processing
-   - [data-preprocessor.js](./data-preprocessor.js): Converts PDFs and chunks large files
-   - [categorize-user-data.js](./categorize-user-data.js): Analyzes data with OpenAI
-   - [persona-builder.js](./persona-builder.js): Builds comprehensive user personas
+   - [data-preprocessor.js](./data-preprocessor.js): Converts PDFs and chunks large files (stage 1)
+   - [categorize-user-data.js](./categorize-user-data.js): Analyzes file data with OpenAI (stage 2)
+   - [user-profile-builder.js](./user-profile-builder.js): Builds & updates user profile from categorized data (stage 2a)
+   - [persona-builder.js](./persona-builder.js): Builds comprehensive user personas (stage 3)
 
 4. **Helper Scripts** (in [scripts/](./scripts/) directory)
    - [scripts/build-lambdas.sh](./scripts/build-lambdas.sh): Builds deployment packages
