@@ -76,7 +76,15 @@ To deploy these changes:
    ./scripts/deploy-lambda-function.sh persona-builder
    ```
 
-3. Configure API Gateway for the prompt-manager Lambda
+3. Configure API Gateway for the prompt-manager Lambda:
+   ```
+   ./scripts/configure-prompt-manager-api.sh --deploy
+   ```
+
+4. Update your frontend environment variables to include the API endpoint:
+   ```
+   REACT_APP_API_BASE_URL=https://your-api-id.execute-api.us-east-1.amazonaws.com/prod
+   ```
 
 ## Future Improvements
 
