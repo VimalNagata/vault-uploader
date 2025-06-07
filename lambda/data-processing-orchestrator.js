@@ -5,8 +5,9 @@
  * 1. Getting triggered when files are uploaded to any stage in S3
  * 2. Routing to the appropriate processor based on the stage:
  *    - stage1 files → data-preprocessor Lambda
- *    - preprocessed files → categorize-user-data Lambda
- *    - stage2 files → user-profile-builder (stage 2a) and persona-builder Lambda (stage 3)
+ *    - preprocessed files → categorize-user-data Lambda AND user-profile-builder Lambda
+ *    - stage2 files → persona-builder Lambda (stage 3)
+ * 3. Managing rate limiting and concurrent processing to prevent OpenAI API overload
  * 
  * Environment Variables:
  * - S3_BUCKET_NAME: The name of the S3 bucket for user data
@@ -275,7 +276,8 @@ async function invokeStage1Processor(bucket, key, userEmail) {
 }
 
 /**
- * Invoke the stage2 processors (user-profile-builder and persona-builder)
+ * Invoke the stage2 processor (persona-builder only)
+ * Note: user-profile-builder is no longer called for stage2 files, only for preprocessed files
  * @param {string} bucket - S3 bucket name
  * @param {string} key - S3 object key
  * @param {string} userEmail - User's email
@@ -287,32 +289,8 @@ async function invokeStage2Processor(bucket, key, userEmail) {
     return;
   }
   
-  // First invoke the user-profile-builder (stage 2a)
-  console.log(`Invoking stage2a processor (user-profile-builder) for ${key}`);
-  
-  const profileParams = {
-    FunctionName: 'user-profile-builder',
-    InvocationType: 'Event', // Asynchronous invocation
-    Payload: JSON.stringify({
-      Records: [{
-        s3: {
-          bucket: { name: bucket },
-          object: { key: key }
-        }
-      }]
-    })
-  };
-  
-  try {
-    const profileResult = await lambda.invoke(profileParams).promise();
-    console.log(`Successfully initiated user profile building for ${key}`, profileResult);
-  } catch (error) {
-    console.error(`Failed to invoke user-profile-builder for ${key}:`, error);
-    // Continue to persona-builder even if profile builder fails
-    console.log("Continuing to persona-builder despite profile builder error");
-  }
-  
-  // Then invoke the persona-builder (stage 3)
+  // Invoke the persona-builder (stage 3) only
+  // Note: user-profile-builder is now only called for preprocessed files
   console.log(`Invoking stage3 processor (persona-builder) for ${key}`);
   
   const personaParams = {
